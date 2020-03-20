@@ -1,34 +1,25 @@
-disp('Running MATLAB script file OODAbookChpLFigGSigClustLongOut.m') ;
-%
-%    Makes Figures G left and G right for Chapter L of the OODA book,
-%    in:        ComplexPopn\OODAbook\ChapterL
-%
-%    In the paper, it has latex label:  figL.E:SigClustTwoClust
-%
-%    This came from  and modifying:    
-%                       OODAbookChpLFigFSigClustSplitLong
-%    in:                Research/ComplexPopn/OODAbook/ChapterL
-%
-%    Uses Lines from ipart = 21 in:  ClusterVis1.m
-%                In:  OODAbook\ToyExamples
-%
+%% Initialize data points
 
-%  Set parameters
-%
-nc1 = 60 ;
-nc2 = 30 ;
+nc1 = 60 ; % 60 points in long green cluster
+nc2 = 30 ; % 30 points each in smaller circular clusters
 nc3 = 30 ;
-mu1 = [0.25; 0.5] ;
+
+% means for the 3 clusters
+mu1 = [0.25; 0.5] ; 
 mu2 = [0.65; 0.4] ;
 mu3 = [0.8; 0.3] ;
-sig1 = [[0.005 0.0095]; [0.0095 0.02]] ;
+
+% covariances for the 3 clusters
+sig1 = [[0.005 0.0095]; [0.0095 0.02]] ;  
 sig1ri = sqrtm(sig1) ;
 sig2 = 0.02 ;
 sig3 = 0.02 ;
+
+% Hardcode the two outliers
 x1 = [0.8; 0.8] ;
 x2 = [0.83; 0.78] ;
 
-%  Generate Data
+%  Generate Data for the clusters
 %
 rng(90275908)  ;
 mdata1 = mu1 * ones(1,nc1) + sig1ri * randn(2,nc1) ;
@@ -37,6 +28,13 @@ mdata3 = mu3 * ones(1,nc3) + sig3 * randn(2,nc3) ;
 
 mdata = [mdata1 mdata2 mdata3 x1 x2] ;
 n = size(mdata,2) ;
+
+% Define the means
+green_mean = mean(mdata1, 2);
+outlier_mean = mean([x1 x2], 2);
+green_and_outlier_mean = mean([mdata1 x1 x2], 2);
+green_and_upsampled_ouliers_mean = mean([mdata1 repmat([x1, x2], 1, 30)], 2);
+means = [green_mean outlier_mean green_and_outlier_mean green_and_upsampled_ouliers_mean];
 
 mcolor = ones(nc1,1) * [0 1 0] ;
 mcolor = [mcolor; (ones(nc2,1) * [0 0 1])] ;
@@ -61,6 +59,8 @@ right = 1 ;
 bottom = -1 ; 
 top = 1 ;
 
+
+%% Run SigClust
 
 figure(1) ;
 clf ;
@@ -92,7 +92,7 @@ set(gcf,'PaperPosition',[0.25, 0.25, 6.0, 6.0]) ;
 print('-depsc2','-cmyk','OODAbookChpLFigGSigClustLongOutRight') ;
 
 
-%  Plot Input Data
+%%  Plot Input Data
 %
 figure(3) ;
 clf ;
@@ -100,19 +100,23 @@ axis([left right bottom top]) ;
 mcolorc = mcolor ;
 mcolorc((nc1 + 1):(n - 2),:) = ones((nc2 + nc3),1) * [0.5 0.5 0.5] ;
 hold on ;
-  for i = 1:n ;
+  for i = 1:n 
     plot(mdata(1,i),mdata(2,i),markerstr(i),'Color',mcolorc(i,:), ...
                           'MarkerSize',6,'Linewidth',0.5) ;
-  end ;
+  end 
   plot((left + right) / 2,-0.25,'x','Color',[0.99 0.99 0.99]) ;
   text(left + 0.2 * (right - left), ...
        bottom + 0.98 * (top - bottom), ...
        ['CI = ' num2str(CI)]) ;
+  % Plot the means
+  for i = 1:4
+      plot(means(1, i), means(2, i), 'ok', 'MarkerSize',6,'Linewidth',0.5)
+  end
 hold off ;
 axis equal ;
 axis off ;
 
-%  Add fit Gaussian contour to plot
+%%  Add fit Gaussian contour to plot
 %
 ncpts = 401 ;
 vangles = linspace(0,2 * pi,ncpts) ;
@@ -127,7 +131,7 @@ hold on ;
        ['Gaussian CI = ' num2str(simCI)]) ;
 hold off ;
 
-%  Add simulated Gaussian data to plot
+%%  Add simulated Gaussian data to plot
 %
 hold on ;
   plot(msim(1,:),msim(2,:),'k*','MarkerSize',4) ;
