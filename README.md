@@ -19,3 +19,6 @@ print(sc.z_score)
 ```
 python -m unittest test_sigclust.py
 ```
+
+### Acknowledgements
+I borrow from Arthur Tilley's [Python version](https://github.com/aetilley/sigclust) of SigClust, which is nicely written. My version is more aligned with the `scikit-learn` ecosystem.
