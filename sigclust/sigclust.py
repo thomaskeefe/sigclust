@@ -1,4 +1,3 @@
-import jive.PCA
 from sklearn.cluster import KMeans
 from .compute_cluster_index import compute_cluster_index, compute_sum_of_square_distances_to_mean
 import numpy as np
@@ -19,7 +18,7 @@ class SigClust(object):
         labels: a list or vector of 1's and 2's
         """
 
-        eigenvalues = jive.PCA.PCA().fit(data).svals(np=True)**2
+        eigenvalues = np.linalg.eigvalsh(np.dot(data.T, data))
         # Number of eigenvalues is min(n, d). We pad to length d
         n, d = data.shape
         padded_eigenvalues = np.zeros(d)
