@@ -1,5 +1,6 @@
 from sklearn.cluster import KMeans
 import numpy as np
+import pandas as pd 
 
 class SigClust(object):
     def __init__(self, num_simulations=1000):
@@ -14,7 +15,7 @@ class SigClust(object):
         SigClust that uses the sample covariance matrix.
 
         data: a matrix where rows are observations and cols are features.
-        labels: a list or vector of 1's and 2's
+        labels: a list or array of cluster labels. Must have two unique members.
         """
 
         eigenvalues = np.linalg.eigvalsh(np.dot(data.T, data))
@@ -56,8 +57,18 @@ def compute_sum_of_square_distances_to_mean(data):
 def compute_cluster_index(data, labels):
     """Compute the cluster index for the two-class clustering
     given by `labels`."""
-    class_1 = data[labels==1]
-    class_2 = data[labels==2]
+    labels = np.array(labels)
+
+    if np.any(pd.isna(labels)):
+        raise ValueError("Labels must not contain nan or None")
+
+    if len(np.unique(labels)) != 2:
+        raise ValueError("Labels must have exactly 2 unique members")
+
+    class_names = np.unique(labels)
+
+    class_1 = data[labels==class_names[0]]
+    class_2 = data[labels==class_names[1]]
 
     class_1_sum_squares = compute_sum_of_square_distances_to_mean(class_1)
     class_2_sum_squares = compute_sum_of_square_distances_to_mean(class_2)

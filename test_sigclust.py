@@ -1,5 +1,6 @@
 import sigclust
 import numpy as np
+from pandas import Series
 from unittest import TestCase
 
 class Tests(TestCase):
@@ -18,15 +19,61 @@ class Tests(TestCase):
         sum_squares = sigclust.compute_sum_of_square_distances_to_mean(self.test_data)
         self.assertAlmostEqual(sum_squares, 8, places=8)
 
-    def test_compute_cluster_index(self):
+    def test_compute_cluster_index_with_numeric_labels(self):
         # Initialize points on the unit square in R^2.
         # Points on the left side are class 1, points
         # on the right side are class 2.
         # The within class sum of squares for each is 2.
         # The total sum of squares is 4*2=8.
-        # So the cluster index is 1/2
+        # So the cluster index is 1/2.
         ci = sigclust.compute_cluster_index(self.test_data, self.test_labels)
         self.assertAlmostEqual(ci, 1.0/2, places=8)
+
+    def test_compute_cluster_index_with_string_labels(self):
+        # Make sure string labels are ok
+        ci = sigclust.compute_cluster_index(self.test_data, ['a', 'a', 'b', 'b'])
+        self.assertAlmostEqual(ci, 1.0/2, places=8)
+
+    def test_compute_cluster_index_with_boolean_labels(self):
+        # It would be very ugly to use boolean labels but it should still work
+        ci = sigclust.compute_cluster_index(self.test_data, [True, True, False, False])
+        self.assertAlmostEqual(ci, 1.0/2, places=8)
+
+    def test_compute_cluster_index_with_bad_labels(self):
+        "Make sure errors raise for bad input cluster labelings"
+        # More than 2 unique labels
+        labels = [1, 1, 2, 2, 3]
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, labels)
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, np.array(labels))
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, Series(labels))
+
+        # Contains None
+        labels = [1, None, 2]
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, labels)
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, np.array(labels))
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, Series(labels))
+
+        # Contains nan
+        labels = [1, np.nan, 2]
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, labels)
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, np.array(labels))
+
+        with self.assertRaises(ValueError):
+            sigclust.compute_cluster_index(self.test_data, Series(labels))
+
 
     def test_SigClust(self):
         "Test SigClust end-to-end"
