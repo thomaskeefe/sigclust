@@ -9,5 +9,6 @@ setup(name='sigclust',
       packages=['sigclust'],
       install_requires=[
         'numpy',
-        'pandas'
+        'pandas',
+        'scikit-learn'
       ])
