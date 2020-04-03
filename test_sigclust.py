@@ -3,7 +3,8 @@ import numpy as np
 from pandas import Series
 from unittest import TestCase
 
-class Tests(TestCase):
+class TestUtilityFunctions(TestCase):
+    "Test the deterministic functions that SigClust uses"
     def setUp(self):
         # Test data is the 4 points on the unit square
         self.test_data = np.array([[-1, 1], [-1, -1], [1, 1], [1, -1]])
@@ -75,12 +76,41 @@ class Tests(TestCase):
             sigclust.compute_cluster_index(self.test_data, Series(labels))
 
 
-    def test_SigClust(self):
-        "Test SigClust end-to-end"
+class TestSigClust(TestCase):
+    "Test the SigClust class"
+    def setUp(self):
+        np.random.seed(824)
         class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
         class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        data = np.concatenate([class_1, class_2], axis=0)
-        labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+        self.test_data = np.concatenate([class_1, class_2], axis=0)
+        self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+
+    def test_SigClust(self):
+        "Test SigClust end-to-end"
         sc = sigclust.SigClust(num_simulations=100)
-        sc.fit(data, labels)
+        sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
+
+    def test_random_seed(self):
+        "Test that runs of SigClust with same seed give same results"
+        np.random.seed(824)
+        sc = sigclust.SigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
+
+        np.random.seed(824)
+        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2.fit(self.test_data, self.test_labels)
+
+        self.assertEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+
+    def test_random_seed_2(self):
+        "Test that runs of SigClust with different seed give (slightly) different results"
+        np.random.seed(824)
+        sc = sigclust.SigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
+
+        np.random.seed(555)  # DIFFERENT SEED
+        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2.fit(self.test_data, self.test_labels)
+
+        self.assertNotEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
