@@ -17,8 +17,7 @@ class SigClust(object):
         data: a matrix where rows are observations and cols are features.
         labels: a list or array of cluster labels. Must have two unique members.
         """
-
-        eigenvalues = np.linalg.eigvalsh(np.dot(data.T, data))
+        eigenvalues = np.linalg.eigvals(np.cov(data.T))
         # Number of eigenvalues is min(n, d). We pad to length d
         n, d = data.shape
         padded_eigenvalues = np.zeros(d)
