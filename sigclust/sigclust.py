@@ -37,8 +37,6 @@ class SigClust(object):
             kmeans.fit(simulated_matrix)
             total_sum_squares = compute_sum_of_square_distances_to_mean(simulated_matrix)
 
-            # NOTE: Inertia uses the "cluster centers", not sure these are the cluster means!
-            # This could be why we're getting lower z scores than Marron;s version?
             cluster_index = kmeans.inertia_ / total_sum_squares
             return cluster_index
 
