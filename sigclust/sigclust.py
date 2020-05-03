@@ -47,6 +47,43 @@ class SigClust(object):
         self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
+class SamplingSigClust(SigClust):
+    "A SigClust that takes samples from the majority class"
+    def __init__(self, num_samplings=100, num_simulations_per_sample=100):
+        self.num_samplings = num_samplings
+        self.num_simulations_per_sample = num_simulations_per_sample
+        super().__init__()
+
+    def fit(self, data, labels):
+        """Fit the SamplingSigClust object.
+        Under the hood, this just fits SigClust instances to subsamples,
+        and collects all the resulting simulated cluster indicies.
+
+        data: a matrix where rows are observations and cols are features.
+        labels: a list or array of cluster labels. Must have two unique members.
+        """
+        data = pd.DataFrame(data)
+        sample_cluster_index = compute_cluster_index(data, labels)
+
+        class_1, class_2 = split_data(data, labels)
+        majority_class, minority_class = sort_by_n_desc([class_1, class_2])
+
+        nmin = minority_class.shape[0]
+
+        self.simulated_cluster_indices = []
+        for i in range(self.num_samplings):
+            sample_from_majority_class = majority_class.sample(nmin, replace=False)
+            new_data = pd.concat([sample_from_majority_class, minority_class], ignore_index=True)
+            new_labels = np.concatenate([np.repeat(1, nmin), np.repeat(2, nmin)])
+            sc = SigClust(self.num_simulations_per_sample)
+            sc.fit(new_data, new_labels)
+            self.simulated_cluster_indices.extend(sc.simulated_cluster_indices)
+
+        # TODO: Implement Marron's continuous empirical probability procedure
+        # for the p-value.
+        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
+        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
 def split_data(data, labels):
     labels = np.array(labels)
 
@@ -65,6 +102,9 @@ def split_data(data, labels):
     X2 = data[labels==class_names[1]]
 
     return (X1, X2)
+
+def sort_by_n_desc(dataframes):
+    return sorted(dataframes, reverse=True, key=lambda df: df.shape[0])
 
 def compute_sum_of_square_distances_to_mean(data):
     """Compute the sum of squared distances to the mean

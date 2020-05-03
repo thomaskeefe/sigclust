@@ -112,3 +112,17 @@ class TestSigClust(TestCase):
         sc2.fit(self.test_data, self.test_labels)
 
         self.assertNotEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+
+class TestSamplingSigClust(TestCase):
+    def setUp(self):
+        np.random.seed(824)
+        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
+        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
+        self.test_data = np.concatenate([class_1, class_2], axis=0)
+        self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+
+    def test_correct_number_of_simulations(self):
+        sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
+        # Total number of simulations should be 3*5 = 15
+        sc.fit(self.test_data, self.test_labels)
+        self.assertEqual(len(sc.simulated_cluster_indices), 15)
