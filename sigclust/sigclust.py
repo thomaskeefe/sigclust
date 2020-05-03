@@ -106,11 +106,15 @@ def split_data(data, labels):
 def sort_by_n_desc(dataframes):
     return sorted(dataframes, reverse=True, key=lambda df: df.shape[0])
 
-def compute_sum_of_square_distances_to_mean(data):
-    """Compute the sum of squared distances to the mean
-    for `data`. `data` should be a rows-as-observations
-    matrix."""
-    displacements = data - np.mean(data, axis=0)
+def compute_sum_of_square_distances_to_mean(X):
+    """Compute the sum of squared distances of the rows of X to the row-mean
+    for X.
+    X: np.ndarray or pd.DataFrame
+    """
+    mean = np.mean(X, axis=0)
+    # NOTE: if X is np.ndarray, then subtraction is broadcast along axis 0 (rows)
+    # if X is pd.DataFrame, then substraction is handled intelligently using column index
+    displacements = X - mean
     distances = np.linalg.norm(displacements, axis=1)
     return np.sum(distances**2)
 
