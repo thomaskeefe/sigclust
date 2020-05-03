@@ -18,6 +18,7 @@ class SigClust(object):
         labels: a list or array of cluster labels. Must have two unique members.
         """
         eigenvalues = np.linalg.eigvals(np.cov(data.T))
+
         # Number of eigenvalues is min(n, d). We pad to length d
         n, d = data.shape
         padded_eigenvalues = np.zeros(d)
@@ -48,6 +49,25 @@ class SigClust(object):
         self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
+def split_data(data, labels):
+    labels = np.array(labels)
+
+    if len(labels) != data.shape[0]:
+        raise ValueError("Number of labels must match number of observations")
+
+    if np.any(pd.isna(labels)):
+        raise ValueError("Labels must not contain nan or None")
+
+    if len(np.unique(labels)) != 2:
+        raise ValueError("Labels must have exactly 2 unique members")
+
+    class_names = np.unique(labels)
+
+    X1 = data[labels==class_names[0]]
+    X2 = data[labels==class_names[1]]
+
+    return (X1, X2)
+
 def compute_sum_of_square_distances_to_mean(data):
     """Compute the sum of squared distances to the mean
     for `data`. `data` should be a rows-as-observations
@@ -59,18 +79,7 @@ def compute_sum_of_square_distances_to_mean(data):
 def compute_cluster_index(data, labels):
     """Compute the cluster index for the two-class clustering
     given by `labels`."""
-    labels = np.array(labels)
-
-    if np.any(pd.isna(labels)):
-        raise ValueError("Labels must not contain nan or None")
-
-    if len(np.unique(labels)) != 2:
-        raise ValueError("Labels must have exactly 2 unique members")
-
-    class_names = np.unique(labels)
-
-    class_1 = data[labels==class_names[0]]
-    class_2 = data[labels==class_names[1]]
+    class_1, class_2 = split_data(data, labels)
 
     class_1_sum_squares = compute_sum_of_square_distances_to_mean(class_1)
     class_2_sum_squares = compute_sum_of_square_distances_to_mean(class_2)
