@@ -47,6 +47,7 @@ class SigClust(object):
         self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
+
 class SamplingSigClust(SigClust):
     "A SigClust that takes samples from the majority class"
     def __init__(self, num_samplings=100, num_simulations_per_sample=100):
@@ -83,6 +84,78 @@ class SamplingSigClust(SigClust):
         # for the p-value.
         self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
+
+class WeightedSigClust(object):
+    """Weighed SigClust that computes a weighted eigenstructure for the MVN
+    simulations, weighted CI test statistic, uses the usual KMeans algorithm and
+    usual KMeans CI for the null distribution of CIs.
+
+    conservative: if False, take samples of size twice the majority class.
+                  this is less conservative, but matches the behavior of
+                  repeating the points in the minority class to match the majority.
+    """
+    def __init__(self, num_simulations=1000, conservative=False):
+        self.num_simulations = num_simulations
+        self.simulated_cluster_indices = None
+        self.p_value = None
+        self.z_score = None
+        self.conservative = conservative
+
+    def fit(self, data, labels):
+        """Fit the SigClust object.
+        Currently only implementing the version of
+        SigClust that uses the sample covariance matrix.
+
+        data: a matrix where rows are observations and cols are features.
+        labels: a list or array of cluster labels. Must have two unique members.
+        """
+
+        data = pd.DataFrame(data)
+        class_1, class_2 = split_data(data, labels)
+        majority_class, minority_class = sort_by_n_desc([class_1, class_2])
+
+        nmaj, d = majority_class.shape
+        nmin = minority_class.shape[0]
+
+        covariance = compute_weighted_covariance(majority_class, minority_class)
+        eigenvalues = np.linalg.eigvals(covariance)
+
+        # Number of eigenvalues is min(n, d). We pad to length d
+        padded_eigenvalues = np.zeros(d)
+        padded_eigenvalues[:len(eigenvalues)] = eigenvalues
+
+        sample_cluster_index = compute_weighted_cluster_index(majority_class, minority_class)
+        # We compute a weighted cluster index in order to match the behavior
+        # of dropping more points on the minority class.
+
+        if self.conservative:
+            sim_size = nmaj + nmin
+        else:
+            sim_size = 2*nmaj
+
+        def simulate_cluster_index():
+            # Recall that using invariance, it suffices to simulate
+            # mean 0 MVNs with diagonal covariance matrix of sample
+            # eigenvalues
+            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(padded_eigenvalues), size=sim_size)
+            # NOTE: Using k-means++ starts. Marron's version has options
+            # for random starts or PCA starts. Implement?
+            kmeans = KMeans(n_clusters=2)
+            # NOTE: doesn't make sense to use weights here, we wouldn't know which rows to weight.
+            kmeans.fit(simulated_matrix)
+            total_sum_squares = compute_sum_of_square_distances_to_mean(simulated_matrix)
+
+            cluster_index = kmeans.inertia_ / total_sum_squares
+            return cluster_index
+
+        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+
+        # TODO: Implement Marron's continuous empirical probability procedure
+        # for the p-value.
+        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
+        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
 
 def split_data(data, labels):
     labels = np.array(labels)
