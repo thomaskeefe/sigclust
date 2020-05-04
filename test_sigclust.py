@@ -69,6 +69,45 @@ class TestUtilityFunctions(TestCase):
         with self.assertRaises(ValueError):
             sigclust.compute_cluster_index(self.test_data, Series(labels))
 
+class TestWeightedFunctions(TestCase):
+    """Test weighted functions (mean, cov, etc) by comparing them
+    to their normal counterparts using suitably multiplied data."""
+    def setUp(self):
+        self.maj_class = np.array([[1,2], [3,4], [5,6], [7,8]])
+        self.min_class = np.array([[9, 10], [11,12]])
+
+    def assert_arrays_close(self, test_array, ref_array):
+        "Custom assertion for arrays being almost equal"
+        try:
+            np.testing.assert_allclose(test_array, ref_array)
+        except AssertionError:
+            self.fail()
+
+    def test_compute_weighted_mean(self):
+        # Computing the refernce value we double up the minority class.
+        reference_value = np.mean(np.concatenate([self.maj_class, self.min_class, self.min_class]), axis=0)
+        computed_value = sigclust.compute_weighted_mean(self.maj_class, self.min_class)
+        self.assert_arrays_close(computed_value, reference_value)
+
+    def test_compute_weighted_covariance(self):
+        # Computing the refernce value we double up the minority class.
+        reference_value = np.cov(np.concatenate([self.maj_class, self.min_class, self.min_class]).T)
+        computed_value = sigclust.compute_weighted_covariance(self.maj_class, self.min_class)
+        self.assert_arrays_close(computed_value, reference_value)
+
+    def test_computed_weighted_cluster_index(self):
+        np.random.seed(824)
+        maj_class = np.random.normal(size=(20, 2)) + np.array([10, 10])
+        min_class = np.random.normal(size=(10, 2)) + np.array([-10, -10])
+
+        # Computing the refernce value we double up the minority class.
+        reference_data = np.concatenate([maj_class, min_class, min_class], axis=0)
+        reference_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+        reference_ci = sigclust.compute_cluster_index(reference_data, reference_labels)
+
+        test_ci = sigclust.compute_weighted_cluster_index(maj_class, min_class)
+        self.assertAlmostEqual(reference_ci, test_ci, places=8)
+
 
 class TestSigClust(TestCase):
     "Test the SigClust class"
