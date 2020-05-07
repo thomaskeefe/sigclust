@@ -3,41 +3,36 @@ import numpy as np
 from pandas import Series
 from unittest import TestCase
 
-class Tests(TestCase):
+class TestUtilityFunctions(TestCase):
+    "Test the deterministic functions that SigClust uses"
     def setUp(self):
-        # Test data is the 4 points on the unit square
-        self.test_data = np.array([[-1, 1], [-1, -1], [1, 1], [1, -1]])
-        # The left hand points of the unit square are class 1,
-        # right hand are class 2
-        self.test_labels = np.array([1, 1, 2, 2])
+        self.test_data = np.array([[-1, 1], [-1, 0], [-1, -1], [1, 1], [1, 0], [1, -1]])
 
     def test_compute_sum_of_square_distances_to_mean(self):
-        # Initialize points on the unit square in R^2.
-        # The mean is (0,0), so each point has distance
-        # sqrt(2), so the sum of square distances is
-        # 4*2 = 8
+        # On paper we can work out that the mean of test_data is the origin
+        # and the sum of square distances is 4*2 + 2 = 10.
         sum_squares = sigclust.compute_sum_of_square_distances_to_mean(self.test_data)
-        self.assertAlmostEqual(sum_squares, 8, places=8)
+        self.assertAlmostEqual(sum_squares, 10, places=8)
 
     def test_compute_cluster_index_with_numeric_labels(self):
-        # Initialize points on the unit square in R^2.
-        # Points on the left side are class 1, points
-        # on the right side are class 2.
+        # Set labels so that test points with x coordinate of -1 are class 1
+        # and x coordinate of 1 are class 2.
         # The within class sum of squares for each is 2.
-        # The total sum of squares is 4*2=8.
-        # So the cluster index is 1/2.
-        ci = sigclust.compute_cluster_index(self.test_data, self.test_labels)
-        self.assertAlmostEqual(ci, 1.0/2, places=8)
+        # The total sum of squares is 4*2 + 2 = 10.
+        # So the cluster index is 4/10
+        labels = np.array([1, 1, 1, 2, 2, 2])
+        ci = sigclust.compute_cluster_index(self.test_data, labels)
+        self.assertAlmostEqual(ci, 4.0/10, places=8)
 
     def test_compute_cluster_index_with_string_labels(self):
         # Make sure string labels are ok
-        ci = sigclust.compute_cluster_index(self.test_data, ['a', 'a', 'b', 'b'])
-        self.assertAlmostEqual(ci, 1.0/2, places=8)
+        ci = sigclust.compute_cluster_index(self.test_data, ['a', 'a', 'a', 'b', 'b', 'b'])
+        self.assertAlmostEqual(ci, 4.0/10, places=8)
 
     def test_compute_cluster_index_with_boolean_labels(self):
         # It would be very ugly to use boolean labels but it should still work
-        ci = sigclust.compute_cluster_index(self.test_data, [True, True, False, False])
-        self.assertAlmostEqual(ci, 1.0/2, places=8)
+        ci = sigclust.compute_cluster_index(self.test_data, [True, True, True, False, False, False])
+        self.assertAlmostEqual(ci, 4.0/10, places=8)
 
     def test_compute_cluster_index_with_bad_labels(self):
         "Make sure errors raise for bad input cluster labelings"
@@ -74,13 +69,99 @@ class Tests(TestCase):
         with self.assertRaises(ValueError):
             sigclust.compute_cluster_index(self.test_data, Series(labels))
 
+class TestWeightedFunctions(TestCase):
+    """Test weighted functions (mean, cov, etc) by comparing them
+    to their normal counterparts using suitably multiplied data."""
+    def setUp(self):
+        self.maj_class = np.array([[1,2], [3,4], [5,6], [7,8]])
+        self.min_class = np.array([[9, 10], [11,12]])
+
+    def assert_arrays_close(self, test_array, ref_array):
+        "Custom assertion for arrays being almost equal"
+        try:
+            np.testing.assert_allclose(test_array, ref_array)
+        except AssertionError:
+            self.fail()
+
+    def test_compute_weighted_mean(self):
+        # Computing the refernce value we double up the minority class.
+        reference_value = np.mean(np.concatenate([self.maj_class, self.min_class, self.min_class]), axis=0)
+        computed_value = sigclust.compute_weighted_mean(self.maj_class, self.min_class)
+        self.assert_arrays_close(computed_value, reference_value)
+
+    def test_compute_weighted_covariance(self):
+        # Computing the refernce value we double up the minority class.
+        reference_value = np.cov(np.concatenate([self.maj_class, self.min_class, self.min_class]).T)
+        computed_value = sigclust.compute_weighted_covariance(self.maj_class, self.min_class)
+        self.assert_arrays_close(computed_value, reference_value)
+
+    def test_computed_weighted_cluster_index(self):
+        np.random.seed(824)
+        maj_class = np.random.normal(size=(20, 2)) + np.array([10, 10])
+        min_class = np.random.normal(size=(10, 2)) + np.array([-10, -10])
+
+        # Computing the refernce value we double up the minority class.
+        reference_data = np.concatenate([maj_class, min_class, min_class], axis=0)
+        reference_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+        reference_ci = sigclust.compute_cluster_index(reference_data, reference_labels)
+
+        test_ci = sigclust.compute_weighted_cluster_index(maj_class, min_class)
+        self.assertAlmostEqual(reference_ci, test_ci, places=8)
+
+
+class TestSigClust(TestCase):
+    "Test the SigClust class"
+    def setUp(self):
+        np.random.seed(824)
+        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
+        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
+        self.test_data = np.concatenate([class_1, class_2], axis=0)
+        self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
 
     def test_SigClust(self):
         "Test SigClust end-to-end"
+        sc = sigclust.SigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
+        self.assertEqual(sc.p_value, 0)
+
+    def test_random_seed(self):
+        "Test that runs of SigClust with same seed give same results"
+        np.random.seed(824)
+        sc = sigclust.SigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
+
+        np.random.seed(824)
+        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2.fit(self.test_data, self.test_labels)
+
+        self.assertEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+
+    def test_random_seed_2(self):
+        "Test that runs of SigClust with different seed give (slightly) different results"
+        np.random.seed(824)
+        sc = sigclust.SigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
+
+        np.random.seed(555)  # DIFFERENT SEED
+        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2.fit(self.test_data, self.test_labels)
+
+        self.assertNotEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+
+class TestSamplingSigClust(TestCase):
+    def setUp(self):
+        np.random.seed(824)
         class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
         class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        data = np.concatenate([class_1, class_2], axis=0)
-        labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
-        sc = sigclust.SigClust(num_simulations=100)
-        sc.fit(data, labels)
-        self.assertEqual(sc.p_value, 0)
+        self.test_data = np.concatenate([class_1, class_2], axis=0)
+        self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
+
+    def test_correct_number_of_simulations(self):
+        sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
+        # Total number of simulations should be 3*5 = 15
+        sc.fit(self.test_data, self.test_labels)
+        self.assertEqual(len(sc.simulated_cluster_indices), 15)
+
+class TestWeightedSigClust(TestCase):
+    def test_initialization(self):
+        sc = sigclust.WeightedSigClust()
