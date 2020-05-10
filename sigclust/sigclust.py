@@ -1,6 +1,7 @@
 from sklearn.cluster import KMeans
 import numpy as np
 import pandas as pd
+from .constrained_kmeans import ConstrainedKMeans
 
 class SigClust(object):
     def __init__(self, num_simulations=1000):
@@ -148,6 +149,54 @@ class WeightedSigClust(object):
 
             cluster_index = kmeans.inertia_ / total_sum_squares
             return cluster_index
+
+        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+
+        # TODO: Implement Marron's continuous empirical probability procedure
+        # for the p-value.
+        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
+        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
+class ConstrainedKMeansSigClust(object):
+    """A SigClust where the simulated clusterings must have the same
+    cardinalities as the input clustering"""
+    def __init__(self, num_simulations=1000):
+        self.num_simulations = num_simulations
+        self.simulated_cluster_indices = None
+        self.p_value = None
+        self.z_score = None
+
+    def fit(self, data, labels):
+        """Fit the SigClust object.
+        Currently only implementing the version of
+        SigClust that uses the sample covariance matrix.
+
+        data: a matrix where rows are observations and cols are features.
+        labels: a list or array of cluster labels. Must have two unique members.
+        """
+        eigenvalues = np.linalg.eigvals(np.cov(data.T))
+
+        # Number of eigenvalues is min(n, d). We pad to length d
+        n, d = data.shape
+        padded_eigenvalues = np.zeros(d)
+        padded_eigenvalues[:len(eigenvalues)] = eigenvalues
+
+        sample_cluster_index = compute_cluster_index(data, labels)
+
+        class_1, class_2 = split_data(data, labels)
+        n1 = class_1.shape[0]
+        n2 = class_2.shape[0]
+
+        def simulate_cluster_index():
+            # Recall that using invariance, it suffices to simulate
+            # mean 0 MVNs with diagonal covariance matrix of sample
+            # eigenvalues
+            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(padded_eigenvalues), size=n)
+            kmeans = ConstrainedKMeans()
+            kmeans.fit(simulated_matrix, demand=(n1, n2))
+
+            ci = compute_cluster_index(simulated_matrix, kmeans.labels)
+            return ci
 
         self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
 
