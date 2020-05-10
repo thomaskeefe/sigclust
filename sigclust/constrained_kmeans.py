@@ -5,6 +5,8 @@
 import networkx as nx
 import numpy as np
 import time
+from numpy import array, tile, concatenate
+from numpy.linalg import norm
 
 class ConstrainedKMeans(object):
 	def __init__(self):
@@ -17,37 +19,45 @@ class ConstrainedKMeans(object):
 		self.flow_cost = f
 
 def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
-	data = np.array(data)
+	data = array(data)
 
-	min_ = np.min(data, axis = 0)
-	max_ = np.max(data, axis = 0)
+	min_ = np.min(data, axis=0)
+	max_ = np.max(data, axis=0)
 
-	C = min_ + np.random.random((len(demand), data.shape[1])) * (max_ - min_)
-	M = np.array([-1] * len(data), dtype=np.int)
+	n, d = data.shape
+	K = len(demand)
+
+	# Initialze centroids
+	C = min_ + np.random.random((K, d)) * (max_ - min_)
+	M = array([-1] * n, dtype=np.int)
 
 	itercnt = 0
 	while True:
 		itercnt += 1
 		g = nx.DiGraph()
 
-		# Add nodes for each point 0
-		g.add_nodes_from(range(0, data.shape[0]), demand=-1)
+		# Add nodes for each point 0...n-1
+		g.add_nodes_from(range(0, n), demand=-1)
 
 		# Add nodes for centroids
-		for i in range(0, len(C)):
-			g.add_node(len(data) + i, demand=demand[i])
+		for k in range(K):
+			g.add_node(n + k, demand=demand[k])
 
 		# Calculating cost...
-		cost = np.array([np.linalg.norm(np.tile(data.T, len(C)).T - np.tile(C, len(data)).reshape(len(C) * len(data), C.shape[1]), axis=1)])
+		cost = array([norm(tile(data.T, K).T - tile(C, n).reshape(K * n, d), axis=1)])
 		# Preparing data_to_C_edges...
-		data_to_C_edges = np.concatenate((np.tile([range(0, data.shape[0])], len(C)).T, np.tile(np.array([range(data.shape[0], data.shape[0] + C.shape[0])]).T, len(data)).reshape(len(C) * len(data), 1), cost.T * fixedprec), axis=1).astype(np.uint64)
+		data_to_C_edges = concatenate(
+		                      (tile([range(n)], K).T,
+							   tile(array([range(n, n + K)]).T, n).reshape(K * n, 1),
+							   cost.T * fixedprec), 
+						  axis=1).astype(np.uint64)
 		# Adding to graph
 		g.add_weighted_edges_from(data_to_C_edges)
 
 
-		a = len(data) + len(C)
-		g.add_node(a, demand=len(data)-np.sum(demand))
-		C_to_a_edges = np.concatenate((np.array([range(len(data), len(data) + len(C))]).T, np.tile([[a]], len(C)).T), axis=1)
+		a = n + K
+		g.add_node(a, demand=n-np.sum(demand))
+		C_to_a_edges = concatenate((array([range(n, n + K)]).T, tile([[a]], K).T), axis=1)
 		g.add_edges_from(C_to_a_edges)
 
 
@@ -55,10 +65,10 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 		f = nx.min_cost_flow(g)
 
 		# assign
-		M_new = np.ones(len(data), dtype=np.int) * -1
-		for i in range(len(data)):
+		M_new = np.ones(n, dtype=np.int) * -1
+		for i in range(n):
 			p = sorted(f[i].items(), key=lambda x: x[1])[-1][0]
-			M_new[i] = p - len(data)
+			M_new[i] = p - n
 
 		# stop condition
 		if np.all(M_new == M):
@@ -68,8 +78,8 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 		M = M_new
 
 		# compute new centers
-		for i in range(len(C)):
-			C[i, :] = np.mean(data[M==i, :], axis=0)
+		for k in range(K):
+			C[k, :] = np.mean(data[M==k, :], axis=0)
 
 		if maxiter is not None and itercnt >= maxiter:
 			# Max iterations reached
@@ -77,6 +87,7 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 
 
 def main():
+	np.random.seed(824)
 	data = np.random.random((75, 3))
 	t = time.time()
 	(C, M, f) = constrained_kmeans(data, [25, 25, 25])
