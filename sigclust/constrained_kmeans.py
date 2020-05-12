@@ -25,10 +25,12 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 	max_ = np.max(data, axis=0)
 
 	n, d = data.shape
-	K = len(demand)
+	K = len(demand)  # number of clusters
 
 	# Initialze centroids
 	C = min_ + np.random.random((K, d)) * (max_ - min_)
+
+	# Initialize labels
 	M = array([-1] * n, dtype=np.int)
 
 	itercnt = 0
@@ -37,6 +39,7 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 		g = nx.DiGraph()
 
 		# Add nodes for each point 0...n-1
+		# Each node has 'supply' of 1, i.e. demand = -1
 		g.add_nodes_from(range(0, n), demand=-1)
 
 		# Add nodes for centroids
@@ -44,17 +47,19 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 			g.add_node(n + k, demand=demand[k])
 
 		# Calculating cost...
-		cost = array([norm(tile(data.T, K).T - tile(C, n).reshape(K * n, d), axis=1)])
+		displacements = tile(data.T, K).T - tile(C, n).reshape(K * n, d)
+		costs = norm(displacements, axis=1).reshape(K*n, 1)
+
 		# Preparing data_to_C_edges...
-		data_to_C_edges = concatenate(
-		                      (tile([range(n)], K).T,
+		data_to_C_edges = np.hstack(
+		                      [tile([range(n)], K).T,
 							   tile(array([range(n, n + K)]).T, n).reshape(K * n, 1),
-							   cost.T * fixedprec), 
-						  axis=1).astype(np.uint64)
+							   costs * fixedprec]
+						   ).astype(np.uint64)
 		# Adding to graph
 		g.add_weighted_edges_from(data_to_C_edges)
 
-
+		# Add artifical demand node
 		a = n + K
 		g.add_node(a, demand=n-np.sum(demand))
 		C_to_a_edges = concatenate((array([range(n, n + K)]).T, tile([[a]], K).T), axis=1)
