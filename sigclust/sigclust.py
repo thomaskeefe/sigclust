@@ -251,10 +251,14 @@ def compute_cluster_index(data, labels):
     """Compute the cluster index for the two-class clustering
     given by `labels`."""
     class_1, class_2 = split_data(data, labels)
+    ci = compute_cluster_index_given_classes(class_1, class_2)
+    return ci
 
+def compute_cluster_index_given_classes(class_1, class_2):
+    """Compute the cluster index for two given classes."""
     class_1_sum_squares = compute_sum_of_square_distances_to_mean(class_1)
     class_2_sum_squares = compute_sum_of_square_distances_to_mean(class_2)
-    total_sum_squares = compute_sum_of_square_distances_to_mean(data)
+    total_sum_squares = compute_sum_of_square_distances_to_mean(np.concatenate([class_1, class_2]))
 
     cluster_index = (class_1_sum_squares + class_2_sum_squares) / total_sum_squares
     return cluster_index
