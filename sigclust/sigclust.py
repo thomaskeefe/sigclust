@@ -10,6 +10,7 @@ class SigClust(object):
     def __init__(self, num_simulations=1000):
         self.num_simulations = num_simulations
         self.simulated_cluster_indices = None
+        self.sample_cluster_index = None
         self.p_value = None
         self.z_score = None
 
@@ -28,7 +29,7 @@ class SigClust(object):
         padded_eigenvalues = np.zeros(d)
         padded_eigenvalues[:len(eigenvalues)] = eigenvalues
 
-        sample_cluster_index = helper.compute_cluster_index(data, labels)
+        self.sample_cluster_index = helper.compute_cluster_index(data, labels)
 
         def simulate_cluster_index():
             # Recall that using invariance, it suffices to simulate
@@ -48,16 +49,17 @@ class SigClust(object):
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.
-        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
-        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+        self.p_value = np.mean(self.sample_cluster_index >= self.simulated_cluster_indices)
+        self.z_score = (self.sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
 
-class SamplingSigClust(SigClust):
+class SamplingSigClust(object):
     "A SigClust that takes samples from the majority class"
     def __init__(self, num_samplings=100, num_simulations_per_sample=100):
         self.num_samplings = num_samplings
         self.num_simulations_per_sample = num_simulations_per_sample
-        super().__init__()
+        self.sigclusts = []
+        self.differences = None
 
     def fit(self, data, labels):
         """Fit the SamplingSigClust object.
@@ -68,26 +70,26 @@ class SamplingSigClust(SigClust):
         labels: a list or array of cluster labels. Must have two unique members.
         """
         data = pd.DataFrame(data)
-        sample_cluster_index = helper.compute_cluster_index(data, labels)
 
         class_1, class_2 = helper.split_data(data, labels)
         majority_class, minority_class = helper.sort_by_n_desc([class_1, class_2])
 
         nmin = minority_class.shape[0]
 
-        self.simulated_cluster_indices = []
         for i in range(self.num_samplings):
             sample_from_majority_class = majority_class.sample(nmin, replace=False)
             new_data = pd.concat([sample_from_majority_class, minority_class], ignore_index=True)
             new_labels = np.concatenate([np.repeat(1, nmin), np.repeat(2, nmin)])
             sc = SigClust(self.num_simulations_per_sample)
             sc.fit(new_data, new_labels)
-            self.simulated_cluster_indices.extend(sc.simulated_cluster_indices)
+            self.sigclusts.append(sc)
 
-        # TODO: Implement Marron's continuous empirical probability procedure
-        # for the p-value.
-        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
-        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+        difference_arrays = [np.array(sc.simulated_cluster_indices) - sc.sample_cluster_index for sc in self.sigclusts]
+        self.differences = np.concatenate(difference_arrays)
+
+        # since we compute the differences, we compare them to 0 instead of any of the sample CIs
+        self.p_value = np.mean(self.differences < 0)
+        self.z_score = (0 - np.mean(self.differences))/np.std(self.differences, ddof=1)
 
 
 class WeightedSigClust(object):
