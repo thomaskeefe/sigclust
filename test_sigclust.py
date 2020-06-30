@@ -160,7 +160,7 @@ class TestSamplingSigClust(TestCase):
         sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
         # Total number of simulations should be 3*5 = 15
         sc.fit(self.test_data, self.test_labels)
-        self.assertEqual(len(sc.simulated_cluster_indices), 15)
+        self.assertEqual(len(sc.differences), 15)
 
 class TestWeightedSigClust(TestCase):
     def test_initialization(self):
