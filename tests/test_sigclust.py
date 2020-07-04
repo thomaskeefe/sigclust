@@ -118,14 +118,15 @@ class TestSigClust(TestCase):
         self.test_data = np.concatenate([class_1, class_2], axis=0)
         self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
 
-    def test_SigClust(self):
-        "Test SigClust end-to-end"
+    def test_correct_fit(self):
+        "Test that two well separated clusters produce a p-value of 0"
         sc = sigclust.SigClust(num_simulations=100)
+        # The test data is two balanced classes of bivariate gaussian data.
         sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
     def test_random_seed(self):
-        "Test that runs of SigClust with same seed give same results"
+        "Test that two runs of SigClust with same seed give same results"
         np.random.seed(824)
         sc = sigclust.SigClust(num_simulations=100)
         sc.fit(self.test_data, self.test_labels)
@@ -137,7 +138,7 @@ class TestSigClust(TestCase):
         self.assertEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
 
     def test_random_seed_2(self):
-        "Test that runs of SigClust with different seed give (slightly) different results"
+        "Test that two runs of SigClust with different seed give (slightly) different results"
         np.random.seed(824)
         sc = sigclust.SigClust(num_simulations=100)
         sc.fit(self.test_data, self.test_labels)
@@ -157,6 +158,7 @@ class TestSamplingSigClust(TestCase):
         self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
 
     def test_correct_number_of_simulations(self):
+        "Test that SamplingSigClust simulates the correct number of cluster indices"
         sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
         # Total number of simulations should be 3*5 = 15
         sc.fit(self.test_data, self.test_labels)
