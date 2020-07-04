@@ -175,3 +175,7 @@ class TestSamplingSigClust(TestCase):
 class TestWeightedSigClust(TestCase):
     def test_initialization(self):
         sc = sigclust.WeightedSigClust()
+
+class TestConstrainedKMeansSigClust(TestCase):
+    def test_initialization(self):
+        sc = sigclust.ConstrainedKMeansSigClust()
