@@ -135,7 +135,10 @@ class TestSigClust(TestCase):
         sc2 = sigclust.SigClust(num_simulations=100)
         sc2.fit(self.test_data, self.test_labels)
 
-        self.assertEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+        try:
+            np.testing.assert_array_equal(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+        except AssertionError:
+            self.fail()
 
     def test_random_seed_2(self):
         "Test that two runs of SigClust with different seed give (slightly) different results"
@@ -147,7 +150,12 @@ class TestSigClust(TestCase):
         sc2 = sigclust.SigClust(num_simulations=100)
         sc2.fit(self.test_data, self.test_labels)
 
-        self.assertNotEqual(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+        try:
+            np.testing.assert_array_equal(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
+        except AssertionError:
+            pass
+        else:
+            self.fail()
 
 class TestSamplingSigClust(TestCase):
     def setUp(self):
