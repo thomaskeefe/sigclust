@@ -55,7 +55,10 @@ class SigClust(object):
 
 
 class SamplingSigClust(object):
-    "A SigClust that takes samples from the majority class"
+    """A SigClust that provides better power when clusters are unbalanced, by
+    running successive SigClusts on the minority class and samples of the
+    majority class.
+    """
     def __init__(self, num_samplings=100, num_simulations_per_sample=100):
         self.num_samplings = num_samplings
         self.num_simulations_per_sample = num_simulations_per_sample
