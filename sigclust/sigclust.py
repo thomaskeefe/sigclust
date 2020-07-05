@@ -2,7 +2,8 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
-from .constrained_kmeans import ConstrainedKMeans
+
+from sigclust.constrained_kmeans import ConstrainedKMeans
 import sigclust.helper_functions as helper
 import sigclust.avg_2means as avg_2means
 
@@ -45,7 +46,7 @@ class SigClust(object):
             cluster_index = kmeans.inertia_ / total_sum_squares
             return cluster_index
 
-        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+        self.simulated_cluster_indices = np.array([simulate_cluster_index() for i in range(self.num_simulations)])
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.
@@ -54,7 +55,10 @@ class SigClust(object):
 
 
 class SamplingSigClust(object):
-    "A SigClust that takes samples from the majority class"
+    """A SigClust that provides better power when clusters are unbalanced, by
+    running successive SigClusts on the minority class and samples of the
+    majority class.
+    """
     def __init__(self, num_samplings=100, num_simulations_per_sample=100):
         self.num_samplings = num_samplings
         self.num_simulations_per_sample = num_simulations_per_sample
@@ -84,7 +88,7 @@ class SamplingSigClust(object):
             sc.fit(new_data, new_labels)
             self.sigclusts.append(sc)
 
-        difference_arrays = [np.array(sc.simulated_cluster_indices) - sc.sample_cluster_index for sc in self.sigclusts]
+        difference_arrays = [sc.simulated_cluster_indices - sc.sample_cluster_index for sc in self.sigclusts]
         self.differences = np.concatenate(difference_arrays)
 
         # since we compute the differences, we compare them to 0 instead of any of the sample CIs
@@ -107,6 +111,7 @@ class WeightedSigClust(object):
         self.p_value = None
         self.z_score = None
         self.conservative = conservative
+        self.sample_cluster_index = None
 
     def fit(self, data, labels):
         """Fit the SigClust object.
@@ -131,7 +136,7 @@ class WeightedSigClust(object):
         padded_eigenvalues = np.zeros(d)
         padded_eigenvalues[:len(eigenvalues)] = eigenvalues
 
-        sample_cluster_index = helper.compute_weighted_cluster_index(majority_class, minority_class)
+        self.sample_cluster_index = helper.compute_weighted_cluster_index(majority_class, minority_class)
         # We compute a weighted cluster index in order to match the behavior
         # of dropping more points on the minority class.
 
@@ -155,12 +160,12 @@ class WeightedSigClust(object):
             cluster_index = kmeans.inertia_ / total_sum_squares
             return cluster_index
 
-        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+        self.simulated_cluster_indices = np.array([simulate_cluster_index() for i in range(self.num_simulations)])
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.
-        self.p_value = np.mean(sample_cluster_index >= self.simulated_cluster_indices)
-        self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+        self.p_value = np.mean(self.sample_cluster_index >= self.simulated_cluster_indices)
+        self.z_score = (self.sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
 class ConstrainedKMeansSigClust(object):
     """A SigClust where the simulated clusterings must have the same
@@ -204,7 +209,7 @@ class ConstrainedKMeansSigClust(object):
             ci = helper.compute_cluster_index(simulated_matrix, kmeans.labels)
             return ci
 
-        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+        self.simulated_cluster_indices = np.array([simulate_cluster_index() for i in range(self.num_simulations)])
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.
@@ -247,7 +252,7 @@ class AvgCISigClust(object):
             clusterer.fit(simulated_matrix, p)
             return clusterer.ci
 
-        self.simulated_cluster_indices = [simulate_cluster_index() for i in range(self.num_simulations)]
+        self.simulated_cluster_indices = np.array([simulate_cluster_index() for i in range(self.num_simulations)])
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.

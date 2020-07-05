@@ -30,8 +30,9 @@ class Avg2Means(object):
         # get the PC1 score that corresponds to minimizing the CI
         score_threshold = pc1_scores[cis.argmin()]
 
-        self.labels = (pc1_scores > score_threshold).astype(int) + 1  # so the class labels are 1s and 2s
-        self.labels.name = "labels"
+        boolean_cluster_labels = (pc1_scores > score_threshold)
+        self.labels = boolean_cluster_labels.astype(int) + 1  # turns the cluster labels into 1s and 2s
+        self.labels.name = "labels"  # the default name for this pandas Series is not helpful; we give it a useful name
         self.ci = cis.min()
 
 
