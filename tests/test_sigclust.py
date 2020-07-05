@@ -110,7 +110,7 @@ class TestWeightedFunctions(TestCase):
 
 
 class TestSigClust(TestCase):
-    "Test the SigClust class"
+    "Test SigClust and its variants"
     def setUp(self):
         np.random.seed(824)
         class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
@@ -118,7 +118,7 @@ class TestSigClust(TestCase):
         self.test_data = np.concatenate([class_1, class_2], axis=0)
         self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
 
-    def test_correct_fit(self):
+    def test_SigClust_fit(self):
         "Test that two well separated clusters produce a p-value of 0"
         sc = sigclust.SigClust(num_simulations=100)
         # The test data is two balanced classes of bivariate gaussian data.
@@ -128,11 +128,11 @@ class TestSigClust(TestCase):
     def test_random_seed(self):
         "Test that two runs of SigClust with same seed give same results"
         np.random.seed(824)
-        sc = sigclust.SigClust(num_simulations=100)
+        sc = sigclust.SigClust(num_simulations=20)
         sc.fit(self.test_data, self.test_labels)
 
         np.random.seed(824)
-        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2 = sigclust.SigClust(num_simulations=20)
         sc2.fit(self.test_data, self.test_labels)
 
         try:
@@ -143,11 +143,11 @@ class TestSigClust(TestCase):
     def test_random_seed_2(self):
         "Test that two runs of SigClust with different seed give (slightly) different results"
         np.random.seed(824)
-        sc = sigclust.SigClust(num_simulations=100)
+        sc = sigclust.SigClust(num_simulations=20)
         sc.fit(self.test_data, self.test_labels)
 
         np.random.seed(555)  # DIFFERENT SEED
-        sc2 = sigclust.SigClust(num_simulations=100)
+        sc2 = sigclust.SigClust(num_simulations=20)
         sc2.fit(self.test_data, self.test_labels)
 
         try:
@@ -157,65 +157,33 @@ class TestSigClust(TestCase):
         else:
             self.fail()
 
-class TestSamplingSigClust(TestCase):
-    def setUp(self):
-        np.random.seed(824)
-        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
-        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        self.test_data = np.concatenate([class_1, class_2], axis=0)
-        self.test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
-
-    def test_correct_number_of_simulations(self):
+    def test_SamplingSigClust_number_of_simulations(self):
         "Test that SamplingSigClust simulates the correct number of cluster indices"
         sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
         # Total number of simulations should be 3*5 = 15
         sc.fit(self.test_data, self.test_labels)
         self.assertEqual(len(sc.differences), 15)
 
-    def test_correct_fit(self):
+    def test_SamplingSigClust_fit(self):
         "Test that SamplingSigClust gets a p-value of 0 for two well separated classes"
         sc = sigclust.SamplingSigClust(num_samplings=4, num_simulations_per_sample=25)
         sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
-
-
-class TestWeightedSigClust(TestCase):
-    def test_correct_fit(self):
+    def test_WeightedSigClust_fit(self):
         "Test that WeightedSigClust gets a p-value of 0 for two well separated classes"
-        np.random.seed(824)
-        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
-        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        test_data = np.concatenate([class_1, class_2], axis=0)
-        test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
-
         sc = sigclust.WeightedSigClust(num_simulations=100)
-        sc.fit(test_data, test_labels)
+        sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
-
-class TestConstrainedKMeansSigClust(TestCase):
-    def test_correct_fit(self):
+    def test_ConstrainedKMeansSigClust_fit(self):
         "Test that ConstrainedKMeansSigClust gets a p-value of 0 for two well separated classes"
-        np.random.seed(824)
-        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
-        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        test_data = np.concatenate([class_1, class_2], axis=0)
-        test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
-
         sc = sigclust.ConstrainedKMeansSigClust(num_simulations=100)
-        sc.fit(test_data, test_labels)
+        sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
-class AvgCISigClust(TestCase):
-    def test_correct_fit(self):
+    def test_AvgCISigClust_fit(self):
         "Test that AvgCISigClust gets a p-value of 0 for two well separated classes"
-        np.random.seed(824)
-        class_1 = np.random.normal(size=(20, 2)) + np.array([10, 10])
-        class_2 = np.random.normal(size=(20, 2)) + np.array([-10, -10])
-        test_data = np.concatenate([class_1, class_2], axis=0)
-        test_labels = np.concatenate([np.repeat(1, 20), np.repeat(2, 20)])
-
         sc = sigclust.AvgCISigClust(num_simulations=100)
-        sc.fit(test_data, test_labels)
+        sc.fit(self.test_data, self.test_labels, p=0.59)
         self.assertEqual(sc.p_value, 0)
