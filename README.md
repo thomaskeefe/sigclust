@@ -1,6 +1,6 @@
 # SigClust
 
-Python version of SigClust. Currently only implements the sample covariance method.
+Python implementation of SigClust, as described by [Huang et al](https://arxiv.org/abs/1305.5879).
 
 ### Quick start
 
@@ -8,17 +8,24 @@ Use the `.fit` method, where `data=` is a pandas DataFrame or numpy matrix. Rows
 
 ```python
 from sigclust import SigClust
+import matplotlib.pyplot as plt
+
 sc = SigClust()
 sc.fit(data=dataframe, labels=[1, 1, 2, 2])
 
 print(sc.p_value)
 print(sc.z_score)
+
+# Plot null distribution and test statistic
+plt.hist(sc.simulated_cluster_indices)
+plt.axvline(sc.sample_cluster_index)
 ```
 
 ### To run tests:
 ```
-python -m unittest test_sigclust.py
+cd tests/
+python -m unittest discover
 ```
 
 ### Acknowledgements
-I borrow from Arthur Tilley's [Python version](https://github.com/aetilley/sigclust) of SigClust, which is nicely written. My version is more aligned with the `scikit-learn` ecosystem.
+I borrow from Arthur Tilley's [Python version](https://github.com/aetilley/sigclust) of SigClust.
