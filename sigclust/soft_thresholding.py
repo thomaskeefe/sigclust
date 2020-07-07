@@ -40,7 +40,7 @@ def _compute_tau(eigenvalues, sig2b):
 
     # NOTE: tau is found by searching between 0 and Ming Yuan's tilde_tau.
     tilde_tau = _compute_tilde_tau(eigenvalues, sig2b)
-    tau_candidates = np.linspace(0, tilde_tau, 100)
+    tau_candidates = np.linspace(0, tilde_tau, 100, endpoint=False)  # using endpoint=False to match Matlab behavior
 
     criteria = [_relative_size_of_1st_eigenvalue(
                    _shift_and_threshold_eigenvalues(eigenvalues, tau, sig2b)

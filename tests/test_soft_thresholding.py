@@ -38,6 +38,10 @@ class TestSoftThresholdingMingYuan(TestCase):
         thresholded_eigenvalues = soft_thresholding.soft_threshold_ming_yuan(eigenvalues, sig2b)
         np.testing.assert_allclose(thresholded_eigenvalues, eigenvalues)
 
+    def test_same_results_as_matlab_function(self):
+        matlab_results = [11.4200, 8.2200, 3.5200, 2.2200, 2.2200, 2.0, 2.0, 2.0, 2.0]
+        np.testing.assert_allclose(self.thresholded_eigenvalues, matlab_results)
+
 
 class TestSoftThresholdingHanwenHuang(TestCase):
     def setUp(self):
@@ -55,3 +59,7 @@ class TestSoftThresholdingHanwenHuang(TestCase):
         thresholded_diffs = np.diff(thresholded_eigenvalues_above_sig2b)
         original_diffs = np.diff(corresponding_original_eigenvalues)
         np.testing.assert_allclose(thresholded_diffs, original_diffs)
+
+    def test_same_results_as_matlab_function(self):
+        matlab_results =  [11.4278, 8.2278, 3.5278, 2.2278, 2.2278, 2.0, 2.0, 2.0, 2.0]
+        np.testing.assert_allclose(self.thresholded_eigenvalues, matlab_results)
