@@ -22,6 +22,23 @@ class TestSoftThresholdingMingYuan(TestCase):
         original_diffs = np.diff(corresponding_original_eigenvalues)
         np.testing.assert_allclose(thresholded_diffs, original_diffs)
 
+    def test_situation_when_not_enough_total_power(self):
+        # If there's not enough total power to maintain total power
+        # while thresholding to sig2b, then the need to threshold to sig2b
+        # overrides the need to maintain total power.
+        new_sig2b = self.eigenvalues.max()
+        d = len(self.eigenvalues)
+        thresholded_eigenvalues = soft_thresholding.soft_threshold_ming_yuan(self.eigenvalues, new_sig2b)
+        np.testing.assert_allclose(thresholded_eigenvalues, np.repeat(new_sig2b, d))
+
+    def test_situation_when_all_eigenvalues_above_sig2b(self):
+        # When they're all above sig2b, they should be returned as is.
+        eigenvalues = np.array([8,7,6,5])
+        sig2b = 3
+        thresholded_eigenvalues = soft_thresholding.soft_threshold_ming_yuan(eigenvalues, sig2b)
+        np.testing.assert_allclose(thresholded_eigenvalues, eigenvalues)
+
+
 class TestSoftThresholdingHanwenHuang(TestCase):
     def setUp(self):
         self.eigenvalues = np.array([12.2, 9, 4.3, 3, 3, 2.1, 2, 0, 0])
