@@ -6,14 +6,16 @@ import pandas as pd
 from sigclust.constrained_kmeans import ConstrainedKMeans
 import sigclust.helper_functions as helper
 import sigclust.avg_2means as avg_2means
+import sigclust.soft_thresholding as soft_thresholding
 
 class SigClust(object):
-    def __init__(self, num_simulations=1000):
+    def __init__(self, num_simulations=1000, covariance_method='soft_thresholding'):
         self.num_simulations = num_simulations
         self.simulated_cluster_indices = None
         self.sample_cluster_index = None
         self.p_value = None
         self.z_score = None
+        self.covariance_method = covariance_method
 
     def fit(self, data, labels):
         """Fit the SigClust object.
@@ -23,12 +25,8 @@ class SigClust(object):
         data: a matrix where rows are observations and cols are features.
         labels: a list or array of cluster labels. Must have two unique members.
         """
-        eigenvalues = np.linalg.eigvals(np.cov(data.T))
-
-        # Number of eigenvalues is min(n, d). We pad to length d
         n, d = data.shape
-        padded_eigenvalues = np.zeros(d)
-        padded_eigenvalues[:len(eigenvalues)] = eigenvalues
+        eigenvalues = get_eigenvalues(data, self.covariance_method)
 
         self.sample_cluster_index = helper.compute_cluster_index(data, labels)
 
@@ -36,7 +34,7 @@ class SigClust(object):
             # Recall that using invariance, it suffices to simulate
             # mean 0 MVNs with diagonal covariance matrix of sample
             # eigenvalues
-            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(padded_eigenvalues), size=n)
+            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(eigenvalues), size=n)
             # NOTE: Using k-means++ starts. Marron's version has options
             # for random starts or PCA starts. Implement?
             kmeans = KMeans(n_clusters=2)
@@ -59,9 +57,10 @@ class SamplingSigClust(object):
     running successive SigClusts on the minority class and samples of the
     majority class.
     """
-    def __init__(self, num_samplings=100, num_simulations_per_sample=100):
+    def __init__(self, num_samplings=100, num_simulations_per_sample=100, covariance_method='soft_thresholding'):
         self.num_samplings = num_samplings
         self.num_simulations_per_sample = num_simulations_per_sample
+        self.covariance_method = covariance_method
         self.sigclusts = []
         self.differences = None
 
@@ -84,7 +83,7 @@ class SamplingSigClust(object):
             sample_from_majority_class = majority_class.sample(nmin, replace=False)
             new_data = pd.concat([sample_from_majority_class, minority_class], ignore_index=True)
             new_labels = np.concatenate([np.repeat(1, nmin), np.repeat(2, nmin)])
-            sc = SigClust(self.num_simulations_per_sample)
+            sc = SigClust(self.num_simulations_per_sample, covariance_method=self.covariance_method)
             sc.fit(new_data, new_labels)
             self.sigclusts.append(sc)
 
@@ -217,8 +216,9 @@ class ConstrainedKMeansSigClust(object):
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
 class AvgCISigClust(object):
-    def __init__(self, num_simulations=1000):
+    def __init__(self, num_simulations=1000, covariance_method='soft_thresholding'):
         self.num_simulations = num_simulations
+        self.covariance_method = covariance_method
         self.simulated_cluster_indices = None
         self.p_value = None
         self.z_score = None
@@ -232,13 +232,8 @@ class AvgCISigClust(object):
         data: a matrix where rows are observations and cols are features.
         labels: a list or array of cluster labels. Must have two unique members.
         """
-        eigenvalues = np.linalg.eigvals(np.cov(data.T))
-
-        # Number of eigenvalues is min(n, d). We pad to length d
         n, d = data.shape
-        padded_eigenvalues = np.zeros(d)
-        padded_eigenvalues[:len(eigenvalues)] = eigenvalues
-
+        eigenvalues = get_eigenvalues(data, self.covariance_method)
 
         class_1, class_2 = helper.split_data(data, labels)
         n1 = class_1.shape[0]
@@ -247,7 +242,7 @@ class AvgCISigClust(object):
         self.sample_cluster_index = avg_2means.compute_average_cluster_index_p_exp(class_1, class_2, p)
 
         def simulate_cluster_index():
-            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(padded_eigenvalues), size=n)
+            simulated_matrix = np.random.multivariate_normal(np.zeros(d), np.diag(eigenvalues), size=n)
             clusterer = avg_2means.Avg2Means()
             clusterer.fit(simulated_matrix, p)
             return clusterer.ci
@@ -258,3 +253,22 @@ class AvgCISigClust(object):
         # for the p-value.
         self.p_value = np.mean(self.sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (self.sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
+def get_eigenvalues(data, covariance_method):
+    sample_eigenvalues = np.linalg.eigvals(np.cov(data.T))
+
+    # Number of eigenvalues is min(n, d). We pad to length d
+    n, d = data.shape
+    padded_eigenvalues = np.zeros(d)
+    padded_eigenvalues[:len(sample_eigenvalues)] = sample_eigenvalues
+
+    if covariance_method == 'sample_covariance':
+        return padded_eigenvalues
+
+    elif covariance_method == 'soft_thresholding':
+        sig2b = soft_thresholding.estimate_background_noise(data)
+        soft_thresholded_eigenvalues = soft_thresholding.soft_threshold_hanwen_huang(padded_eigenvalues, sig2b)
+        return soft_thresholded_eigenvalues
+
+    else:
+        raise ValueError("Covariance method must be 'sample_covariance' or 'soft_thresholding'")
