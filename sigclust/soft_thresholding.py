@@ -1,5 +1,6 @@
 "Ming Yuan and Hanwen Huang's soft thresholding procedures for SigClust"
 import numpy as np
+import scipy.stats
 
 def soft_threshold_hanwen_huang(eigenvalues, sig2b):
     "Soft threshold eigenvalues to background noise level sig2b according to Hanwen Huang's scheme"
@@ -65,3 +66,10 @@ def _shift_and_threshold_eigenvalues(eigenvalues, tau, sig2b):
 
 def _relative_size_of_1st_eigenvalue(eigenvalues):
     return eigenvalues.max() / eigenvalues.sum()
+
+def estimate_background_noise(data):
+    data_median = np.median(data)
+    MAD = np.median(np.abs(data-data_median))
+    scaled_MAD = MAD / scipy.stats.norm.ppf(.75)
+    sig2b = scaled_MAD**2
+    return sig2b

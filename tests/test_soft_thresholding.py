@@ -63,3 +63,15 @@ class TestSoftThresholdingHanwenHuang(TestCase):
     def test_same_results_as_matlab_function(self):
         matlab_results =  [11.4278, 8.2278, 3.5278, 2.2278, 2.2278, 2.0, 2.0, 2.0, 2.0]
         np.testing.assert_allclose(self.thresholded_eigenvalues, matlab_results)
+
+class TestBackgroundNoiseEstimation(TestCase):
+    def test_same_results_as_matlab_function(self):
+        # the matlab function is madSM.m
+        # the data is magic(4)
+        data = np.array([[16, 5,  9,  4],
+                         [2, 11,  7, 14],
+                         [3, 10,  6, 15],
+                         [13,  8, 12, 1]]).T
+        matlab_result = 5.930408874022407  # this is on the scale of SD, not variance
+        matlab_sig2b = matlab_result**2
+        self.assertAlmostEqual(soft_thresholding.estimate_background_noise(data), matlab_sig2b)
