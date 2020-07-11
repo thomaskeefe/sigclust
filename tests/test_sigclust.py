@@ -69,6 +69,37 @@ class TestUtilityFunctions(TestCase):
         with self.assertRaises(ValueError):
             sigclust.compute_cluster_index(self.test_data, Series(labels))
 
+    def test_get_eigenvalues_for_d_less_than_n(self):
+        np.random.seed(824)
+        d = 5
+        n = 20
+        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
+        assert data.shape[0]==n
+        assert data.shape[1]==d
+        eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
+        self.assertEqual(len(eigenvalues), d)
+
+    def test_get_eigenvalues_for_d_equals_n(self):
+        np.random.seed(824)
+        d = 5
+        n = 5
+        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
+        assert data.shape[0]==n
+        assert data.shape[1]==d
+        eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
+        self.assertEqual(len(eigenvalues), d)
+
+    def test_get_eigenvalues_for_d_greater_than_n(self):
+        np.random.seed(824)
+        d = 10
+        n = 5
+        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
+        assert data.shape[0]==n
+        assert data.shape[1]==d
+        eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
+        self.assertEqual(len(eigenvalues), d)
+
+
 class TestWeightedFunctions(TestCase):
     """Test weighted functions (mean, cov, etc) by comparing them
     to their normal counterparts using suitably multiplied data."""

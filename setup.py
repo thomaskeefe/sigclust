@@ -8,6 +8,7 @@ setup(name='sigclust',
       author_email='tkeefe@live.unc.edu',
       packages=['sigclust'],
       install_requires=[
+        'scipy',
         'numpy',
         'pandas',
         'scikit-learn'

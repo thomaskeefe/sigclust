@@ -37,13 +37,13 @@ def soft_threshold_ming_yuan(eigenvalues, sig2b):
 
 def _compute_tau(eigenvalues, sig2b):
     """Compute the tau that gives Hanwen Huang's soft thresholded eigenvalues, which
-    maximizes the relative size of the first eigenvalue"""
+    maximizes the relative size of the largest eigenvalue"""
 
     # NOTE: tau is found by searching between 0 and Ming Yuan's tilde_tau.
     tilde_tau = _compute_tilde_tau(eigenvalues, sig2b)
     tau_candidates = np.linspace(0, tilde_tau, 100, endpoint=False)  # using endpoint=False to match Matlab behavior
 
-    criteria = [_relative_size_of_1st_eigenvalue(
+    criteria = [_relative_size_of_largest_eigenvalue(
                    _shift_and_threshold_eigenvalues(eigenvalues, tau, sig2b)
                 ) for tau in tau_candidates]
 
@@ -64,7 +64,7 @@ def _shift_and_threshold_eigenvalues(eigenvalues, tau, sig2b):
     shifted_eigenvalues = eigenvalues - tau
     return np.maximum(shifted_eigenvalues, sig2b)
 
-def _relative_size_of_1st_eigenvalue(eigenvalues):
+def _relative_size_of_largest_eigenvalue(eigenvalues):
     return eigenvalues.max() / eigenvalues.sum()
 
 def estimate_background_noise(data):

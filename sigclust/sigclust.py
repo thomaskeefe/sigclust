@@ -2,6 +2,8 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
+import scipy.sparse.linalg
+import scipy.linalg
 
 from sigclust.constrained_kmeans import ConstrainedKMeans
 import sigclust.helper_functions as helper
@@ -255,19 +257,30 @@ class AvgCISigClust(object):
         self.z_score = (self.sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
 def get_eigenvalues(data, covariance_method):
-    sample_eigenvalues = np.linalg.eigvals(np.cov(data.T))
-
-    # Number of eigenvalues is min(n, d). We pad to length d
+    """Get the eigenvalues of the sample covariance matrix of the data,
+    and return them directly (covariance_method='sample_covariance') or
+    soft threshold them (covariance_method='soft_thresholding')
+    """
     n, d = data.shape
-    padded_eigenvalues = np.zeros(d)
-    padded_eigenvalues[:len(sample_eigenvalues)] = sample_eigenvalues
+    # NOTE: the scipy routines used here return eigenvalues in ascending order.
+    # SigClust doesn't care what order the eigenvalues are.
+    if d <= n:
+        eigenvalues, eigenvectors = scipy.linalg.eigh(np.cov(data.T))
+    else:
+        # When d > n, the sample covariance matrix will have (d-n) zero eigenvalues,
+        # so it is much faster to just ask for the n largest and fill the rest
+        # with zeros.
+        eigenvalues, eigenvectors = scipy.sparse.linalg.eigsh(np.cov(data.T), k=n, which='LM')
+        eigenvalues = np.concatenate([np.zeros(d-n), eigenvalues])
+
+    assert len(eigenvalues) == d
 
     if covariance_method == 'sample_covariance':
-        return padded_eigenvalues
+        return eigenvalues
 
     elif covariance_method == 'soft_thresholding':
         sig2b = soft_thresholding.estimate_background_noise(data)
-        soft_thresholded_eigenvalues = soft_thresholding.soft_threshold_hanwen_huang(padded_eigenvalues, sig2b)
+        soft_thresholded_eigenvalues = soft_thresholding.soft_threshold_hanwen_huang(eigenvalues, sig2b)
         return soft_thresholded_eigenvalues
 
     else:
