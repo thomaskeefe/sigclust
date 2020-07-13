@@ -73,9 +73,7 @@ class TestUtilityFunctions(TestCase):
         np.random.seed(824)
         d = 5
         n = 20
-        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
-        assert data.shape[0]==n
-        assert data.shape[1]==d
+        data = np.random.standard_normal(size=(n,d))
         eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
         self.assertEqual(len(eigenvalues), d)
 
@@ -83,9 +81,7 @@ class TestUtilityFunctions(TestCase):
         np.random.seed(824)
         d = 5
         n = 5
-        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
-        assert data.shape[0]==n
-        assert data.shape[1]==d
+        data = np.random.standard_normal(size=(n,d))
         eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
         self.assertEqual(len(eigenvalues), d)
 
@@ -93,7 +89,7 @@ class TestUtilityFunctions(TestCase):
         np.random.seed(824)
         d = 10
         n = 5
-        data = np.random.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), size=n)
+        data = np.random.standard_normal(size=(n,d))
         assert data.shape[0]==n
         assert data.shape[1]==d
         eigenvalues = sigclust.get_eigenvalues(data, covariance_method='sample_covariance')
