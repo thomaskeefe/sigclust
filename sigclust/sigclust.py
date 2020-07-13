@@ -36,7 +36,7 @@ class SigClust(object):
             # Recall that using invariance, it suffices to simulate
             # mean 0 MVNs with diagonal covariance matrix of sample
             # eigenvalues
-            simulated_matrix = np.random.standard_normal(size=(n, d)) * eigenvalues  # much faster than np.random.multivariate_normal
+            simulated_matrix = np.random.standard_normal(size=(n, d)) * np.sqrt(eigenvalues)  # much faster than np.random.multivariate_normal
             # NOTE: Using k-means++ starts. Marron's version has options
             # for random starts or PCA starts. Implement?
             kmeans = KMeans(n_clusters=2)
@@ -150,7 +150,7 @@ class WeightedSigClust(object):
             # Recall that using invariance, it suffices to simulate
             # mean 0 MVNs with diagonal covariance matrix of sample
             # eigenvalues
-            simulated_matrix = np.random.standard_normal(size=(sim_size, d)) * padded_eigenvalues  # much faster than np.random.multivariate_normal
+            simulated_matrix = np.random.standard_normal(size=(sim_size, d)) * np.sqrt(padded_eigenvalues)  # much faster than np.random.multivariate_normal
             # NOTE: Using k-means++ starts. Marron's version has options
             # for random starts or PCA starts. Implement?
             kmeans = KMeans(n_clusters=2)
@@ -202,7 +202,7 @@ class ConstrainedKMeansSigClust(object):
             # Recall that using invariance, it suffices to simulate
             # mean 0 MVNs with diagonal covariance matrix of sample
             # eigenvalues
-            simulated_matrix = np.random.standard_normal(size=(n, d)) * padded_eigenvalues  # much faster than np.random.multivariate_normal
+            simulated_matrix = np.random.standard_normal(size=(n, d)) * np.sqrt(padded_eigenvalues)  # much faster than np.random.multivariate_normal
 
             kmeans = ConstrainedKMeans()
             kmeans.fit(simulated_matrix, demand=(n1, n2))
@@ -244,7 +244,7 @@ class AvgCISigClust(object):
         self.sample_cluster_index = avg_2means.compute_average_cluster_index_p_exp(class_1, class_2, p)
 
         def simulate_cluster_index():
-            simulated_matrix = np.random.standard_normal(size=(n, d)) * eigenvalues  # much faster than np.random.multivariate_normal
+            simulated_matrix = np.random.standard_normal(size=(n, d)) * np.sqrt(eigenvalues)  # much faster than np.random.multivariate_normal
             clusterer = avg_2means.Avg2Means()
             clusterer.fit(simulated_matrix, p)
             return clusterer.ci
