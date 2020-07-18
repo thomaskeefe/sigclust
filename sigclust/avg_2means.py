@@ -1,39 +1,33 @@
 from sklearn.decomposition import PCA
 import numpy as np
-import pandas as pd
 import sigclust.helper_functions as helper
 
 
 class Avg2Means(object):
     def __init__(self):
-        self.labels = None
-        self.ci = None
+        pass
 
     def fit(self, X, p=1.0):
-        scores = PCA(n_components=1).fit_transform(X)
-        scores_df = pd.DataFrame(scores)
+        n = X.shape[0]
+        pc1_scores = PCA(n_components=1).fit_transform(X)
+        pc1_scores = pc1_scores.reshape(pc1_scores.size)  # reshape to 1-D
+        pc1_sort_order = np.argsort(pc1_scores)
+        ordered_pc1_scores = pc1_scores[pc1_sort_order]
+        Y = np.copy(X)[pc1_sort_order, :]
 
-        pc1_scores = scores_df.iloc[:, 0]
+        cis = []
+        for i in range(n-1):  # cis will contain n-1 points
+            class_1 = Y[:i+1, :]
+            class_2 = Y[i+1:, :]
+            ci = compute_average_cluster_index_p_exp(class_1, class_2, p)
+            cis.append(ci)
 
-        def split_data_by_score(score):
-            class_1 = X[pc1_scores <= score]
-            class_2 = X[pc1_scores > score]
-            return (class_1, class_2)
-
-        def compute_avg_ci_p_by_score(score):
-            class_1, class_2 = split_data_by_score(score)
-            return compute_average_cluster_index_p_exp(class_1, class_2, p)
-
-        # compute the cluster index corresponding to thresholding at each score
-        cis = pc1_scores.map(compute_avg_ci_p_by_score)
-
-        # get the PC1 score that corresponds to minimizing the CI
-        score_threshold = pc1_scores[cis.argmin()]
-
-        boolean_cluster_labels = (pc1_scores > score_threshold)
+        # get point on the PC1 vector that best splits the data
+        optimizing_score = ordered_pc1_scores[np.argmin(cis)]
+        boolean_cluster_labels = (pc1_scores > optimizing_score) # note, this follows the original index of the data, not the reordering.
         self.labels = boolean_cluster_labels.astype(int) + 1  # turns the cluster labels into 1s and 2s
-        self.labels.name = "labels"  # the default name for this pandas Series is not helpful; we give it a useful name
-        self.ci = cis.min()
+        self.cis = cis
+        self.ci = min(cis)
 
 
 def compute_average_cluster_index_p_exp(class_1, class_2, p):
