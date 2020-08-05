@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse.linalg
 import scipy.linalg
+import matplotlib.pyplot as plt
 
 from sigclust.constrained_kmeans import ConstrainedKMeans
 import sigclust.helper_functions as helper
@@ -52,6 +53,21 @@ class SigClust(object):
         # for the p-value.
         self.p_value = np.mean(self.sample_cluster_index >= self.simulated_cluster_indices)
         self.z_score = (self.sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
+
+    def plot_test_statistic(self, ax=None):
+        "Plot the test statistic and its null distribution"
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        ax.hist(self.simulated_cluster_indices, color='lightgray')
+        ax.axvline(self.sample_cluster_index, color='red')
+        ax.set_xlabel("Cluster Index")
+        ax.text(0.05, .95, f"p-value: {self.p_value:.3f}\nz-score: {self.z_score:.2f}")
+
+    def plot_qq_fit(self, ax=None):
+        pass
+
+
 
 
 class SamplingSigClust(object):
