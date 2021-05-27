@@ -234,9 +234,10 @@ class ConstrainedKMeansSigClust(object):
         self.z_score = (sample_cluster_index - np.mean(self.simulated_cluster_indices))/np.std(self.simulated_cluster_indices, ddof=1)
 
 class AvgCISigClust(object):
-    def __init__(self, num_simulations=1000, covariance_method='soft_thresholding'):
+    def __init__(self, num_simulations=1000, covariance_method='soft_thresholding', max_components=1):
         self.num_simulations = num_simulations
         self.covariance_method = covariance_method
+        self.max_components = max_components
         self.simulated_cluster_indices = None
         self.p_value = None
         self.z_score = None
@@ -261,7 +262,7 @@ class AvgCISigClust(object):
 
         def simulate_cluster_index():
             simulated_matrix = np.random.standard_normal(size=(n, d)) * np.sqrt(eigenvalues)  # much faster than np.random.multivariate_normal
-            clusterer = avg_2means.Avg2Means()
+            clusterer = avg_2means.Avg2Means(self.max_components)
             clusterer.fit(simulated_matrix, p)
             return clusterer.ci
 
