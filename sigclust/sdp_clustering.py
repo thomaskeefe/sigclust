@@ -1,6 +1,6 @@
 import cvxpy as cp
 from sigclust.avg_2means import compute_average_cluster_index_p_exp
-from sigclust import split_data
+from sigclust.helper_functions import split_data
 import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
