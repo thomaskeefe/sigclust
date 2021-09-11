@@ -23,19 +23,19 @@ def cp_outer(x, y):
 
     return cp.reshape(x, (x.size, 1)) @ cp.reshape(y, (1, y.size))
 
-def _solve_sdp(D, c, n_minor, n_major, p, xi):
+def _solve_sdp(D, c, n_minor, n_major, g, xi):
     """D: matrix of squared pairwise distances
        c: vector of square distances to the data mean
        n_minor, n_major: number of points in each class
-       p = exponent p
+       g = exponent g
     """
     n = n_minor + n_major
     Z = cp.Variable((n, n), symmetric=True)
     z = cp.Variable(n)
-    alpha1 = 1 / (2*n_minor**(p+1))
-    alpha2 = 1 / (2*n_major**(p+1))
-    gamma1 = 2 / (n_minor**p)
-    gamma2 = 2 / (n_major**p)
+    alpha1 = 1 / (2*n_minor**(g+1))
+    alpha2 = 1 / (2*n_major**(g+1))
+    gamma1 = 2 / (n_minor**g)
+    gamma2 = 2 / (n_major**g)
     z1t = cp_outer(z, np.ones(n))
     _1zt = z1t.T
     _11t = cp_outer(np.ones(n), np.ones(n))
@@ -63,7 +63,7 @@ def _solve_sdp(D, c, n_minor, n_major, p, xi):
     return (prob, Z, z)
 
 
-def optimize_over_xi(D, c, n_minor, n_major, p, tol=.1, maxiter=25):
+def optimize_over_xi(D, c, n_minor, n_major, g, tol=.1, maxiter=25):
     L = 0
     U = 1
     maxiter = int(np.ceil(np.log2(1/tol)))
@@ -72,7 +72,7 @@ def optimize_over_xi(D, c, n_minor, n_major, p, tol=.1, maxiter=25):
     for it in range(maxiter):
         xi = (L+U)/2
         try:
-            prob, Z, z = _solve_sdp(D, c, n_minor, n_major, p, xi)
+            prob, Z, z = _solve_sdp(D, c, n_minor, n_major, g, xi)
 
         except Exception as e:
             # If we're here, the solver had an error, which is not
@@ -120,12 +120,12 @@ def singularvector_round(Z):
     labels[dotproducts <= 0] = 2
     return labels
 
-class PClustering:
-    def __init__(self, p):
-        self.p = p
+class GClustering:
+    def __init__(self, g):
+        self.g = g
 
     def __repr__(self):
-        return f"PClustering, p = {self.p}"
+        return f"GClustering, g = {self.g}"
 
     def fit(self, X, tol=.1):
         n, d = X.shape
@@ -144,7 +144,7 @@ class PClustering:
             n_minor = i + 1
             n_major = n - n_minor
 
-            best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.p, tol=tol, maxiter=25)
+            best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol, maxiter=25)
 
             labels = singularvector_round(best_Z.value)
 
@@ -152,7 +152,7 @@ class PClustering:
                 ci = 1
                 labels = np.ones(n)
             else:
-                ci = compute_average_cluster_index_p_exp(*split_data(X, labels), self.p)
+                ci = compute_average_cluster_index_p_exp(*split_data(X, labels), self.g)
 
             self.results_ci[i] = ci
             self.results_labels[i, :] = labels
