@@ -6,6 +6,11 @@ from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import pdist, squareform
 from tqdm import tqdm
+import logging
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+LOG = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # TODO: big todo: Alex says the binary search over xi may be able to be
 # relaxed with an SDP constraint, but this would be an even more relaxed
@@ -78,7 +83,7 @@ def optimize_over_xi(D, c, n_minor, n_major, g, tol=.1, maxiter=25):
             # If we're here, the solver had an error, which is not
             # the same as "infeasible" but we do the same thing.
             L = (L+U)/2
-            print(e)
+            LOG.info(e)
             continue
 
         if prob.status == 'optimal':
@@ -140,22 +145,23 @@ class GClustering:
         self.results_Z = np.tile(np.nan, (search_bound, n, n))
         self.results_xi = np.tile(np.nan, search_bound)
 
-        for i in tqdm(range(search_bound)):
-            n_minor = i + 1
-            n_major = n - n_minor
+        with logging_redirect_tqdm():  # makes sure logging plays nice with tqdm
+            for i in tqdm(range(search_bound)):
+                n_minor = i + 1
+                n_major = n - n_minor
 
-            best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol, maxiter=25)
+                best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol, maxiter=25)
 
-            labels = singularvector_round(best_Z.value)
+                labels = singularvector_round(best_Z.value)
 
-            if len(np.unique(labels)) != 2:
-                ci = 1
-                labels = np.ones(n)
-            else:
-                ci = compute_average_cluster_index_p_exp(*split_data(X, labels), self.g)
+                if len(np.unique(labels)) != 2:
+                    ci = 1
+                    labels = np.ones(n)
+                else:
+                    ci = compute_average_cluster_index_p_exp(*split_data(X, labels), self.g)
 
-            self.results_ci[i] = ci
-            self.results_labels[i, :] = labels
-            self.results_z[i, :] = best_z.value
-            self.results_Z[i, :, :] = best_Z.value
-            self.results_xi[i] = best_xi
+                self.results_ci[i] = ci
+                self.results_labels[i, :] = labels
+                self.results_z[i, :] = best_z.value
+                self.results_Z[i, :, :] = best_Z.value
+                self.results_xi[i] = best_xi
