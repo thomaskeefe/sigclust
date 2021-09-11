@@ -5,7 +5,7 @@ import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import pdist, squareform
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 import logging
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -68,7 +68,7 @@ def _solve_sdp(D, c, n_minor, n_major, g, xi):
     return (prob, Z, z)
 
 
-def optimize_over_xi(D, c, n_minor, n_major, g, tol=.1, maxiter=25):
+def optimize_over_xi(D, c, n_minor, n_major, g, tol=.1):
     L = 0
     U = 1
     maxiter = int(np.ceil(np.log2(1/tol)))
@@ -146,11 +146,11 @@ class GClustering:
         self.results_xi = np.tile(np.nan, search_bound)
 
         with logging_redirect_tqdm():  # makes sure logging plays nice with tqdm
-            for i in tqdm(range(search_bound)):
+            for i in tqdm(range(search_bound), leave=False):
                 n_minor = i + 1
                 n_major = n - n_minor
 
-                best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol, maxiter=25)
+                best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol)
 
                 labels = singularvector_round(best_Z.value)
 
