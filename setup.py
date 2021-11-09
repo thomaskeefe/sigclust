@@ -11,5 +11,6 @@ setup(name='sigclust',
         'scipy',
         'numpy',
         'pandas',
-        'scikit-learn'
+        'scikit-learn',
+        'numba'
       ])
