@@ -1,17 +1,19 @@
 from sklearn.decomposition import PCA
 import numpy as np
 import sigclust.helper_functions as helper
+from tqdm.autonotebook import tqdm
 
 
 class Avg2Means(object):
-    def __init__(self, max_components=1):
+    def __init__(self, max_components=1, progressbar=True):
         self.max_components = max_components
+        self.disable_progressbar = not progressbar
 
     def fit(self, X, p=1.0):
         scores = PCA(n_components=self.max_components).fit_transform(X)
 
         results_per_pc = []
-        for j in range(self.max_components):
+        for j in tqdm(range(self.max_components), desc='Loop over PCs', disable=self.disable_progressbar):
             minimum, labels = self.minimize_along_pc(X, scores[:, j], p)
             results_per_pc.append((minimum, labels))
 
@@ -25,7 +27,8 @@ class Avg2Means(object):
         Y = np.array(X)[sort_order, :]
 
         cis = []
-        for i in range(n-1):  # cis will contain n-1 points
+        for i in tqdm(range(n-1), desc='Loop within PC', disable=self.disable_progressbar):
+            # cis will contain n-1 points
             class_1 = Y[:i+1, :]
             class_2 = Y[i+1:, :]
             ci = compute_average_cluster_index_p_exp(class_1, class_2, p)
