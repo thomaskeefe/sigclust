@@ -1,6 +1,5 @@
 import cvxpy as cp
-from sigclust.avg_2means import compute_average_cluster_index_p_exp
-from sigclust.helper_functions import split_data
+from sigclust.helper_functions import split_data, compute_sum_of_square_distances_to_mean, compute_sum_of_square_distances_to_point
 import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
@@ -125,6 +124,26 @@ def singularvector_round(Z):
     labels[dotproducts <= 0] = 2
     return labels
 
+
+def compute_average_cluster_index_g_exp(class_1, class_2, g):
+    """Compute the average cluster index for the two-class clustering
+    given by `labels`, and using the exponent g"""
+    n1 = class_1.shape[0]
+    n2 = class_2.shape[0]
+    if (n1 == 0) or (n2 == 0):
+        return np.nan
+
+    class_1_SSE = helper.compute_sum_of_square_distances_to_mean(class_1)
+    class_2_SSE = helper.compute_sum_of_square_distances_to_mean(class_2)
+
+    overall_mean = np.concatenate([class_1, class_2]).mean(axis=0)
+
+    numerator = (1/n1)**g * class_1_SSE + (1/n2)**g * class_2_SSE
+    denominator = (helper.compute_sum_of_square_distances_to_point(class_1, overall_mean) / (n1**g) +
+                   helper.compute_sum_of_square_distances_to_point(class_2, overall_mean) / (n2**g) )
+
+    return numerator/denominator
+
 class GClustering:
     def __init__(self, g):
         self.g = g
@@ -158,7 +177,7 @@ class GClustering:
                     ci = 1
                     labels = np.ones(n)
                 else:
-                    ci = compute_average_cluster_index_p_exp(*split_data(X, labels), self.g)
+                    ci = compute_average_cluster_index_g_exp(*split_data(X, labels), self.g)
 
                 self.results_ci[i] = ci
                 self.results_labels[i, :] = labels
