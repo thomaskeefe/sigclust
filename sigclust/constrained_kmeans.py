@@ -31,7 +31,7 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 	C = min_ + np.random.random((K, d)) * (max_ - min_)
 
 	# Initialize labels
-	M = array([-1] * n, dtype=np.int)
+	M = array([-1] * n, dtype=int)
 
 	itercnt = 0
 	while True:
@@ -70,7 +70,7 @@ def constrained_kmeans(data, demand, maxiter=None, fixedprec=1e9):
 		f = nx.min_cost_flow(g)
 
 		# assign
-		M_new = np.ones(n, dtype=np.int) * -1
+		M_new = np.ones(n, dtype=int) * -1
 		for i in range(n):
 			p = sorted(f[i].items(), key=lambda x: x[1])[-1][0]
 			M_new[i] = p - n
