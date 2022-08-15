@@ -152,38 +152,6 @@ class TestSigClust(TestCase):
         sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
-    def test_random_seed(self):
-        "Test that two runs of SigClust with same seed give same results"
-        np.random.seed(824)
-        sc = sigclust.SigClust(num_simulations=20)
-        sc.fit(self.test_data, self.test_labels)
-
-        np.random.seed(824)
-        sc2 = sigclust.SigClust(num_simulations=20)
-        sc2.fit(self.test_data, self.test_labels)
-
-        try:
-            np.testing.assert_array_equal(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
-        except AssertionError:
-            self.fail()
-
-    def test_random_seed_2(self):
-        "Test that two runs of SigClust with different seed give (slightly) different results"
-        np.random.seed(824)
-        sc = sigclust.SigClust(num_simulations=20)
-        sc.fit(self.test_data, self.test_labels)
-
-        np.random.seed(555)  # DIFFERENT SEED
-        sc2 = sigclust.SigClust(num_simulations=20)
-        sc2.fit(self.test_data, self.test_labels)
-
-        try:
-            np.testing.assert_array_equal(sc.simulated_cluster_indices, sc2.simulated_cluster_indices)
-        except AssertionError:
-            pass
-        else:
-            self.fail()
-
     def test_SamplingSigClust_number_of_simulations(self):
         "Test that SamplingSigClust simulates the correct number of cluster indices"
         sc = sigclust.SamplingSigClust(num_samplings=3, num_simulations_per_sample=5)
@@ -212,5 +180,5 @@ class TestSigClust(TestCase):
     def test_AvgCISigClust_fit(self):
         "Test that AvgCISigClust gets a p-value of 0 for two well separated classes"
         sc = sigclust.AvgCISigClust(num_simulations=100)
-        sc.fit(self.test_data, self.test_labels, p=0.59)
+        sc.fit(self.test_data, self.test_labels, g=0.59)
         self.assertEqual(sc.p_value, 0)
