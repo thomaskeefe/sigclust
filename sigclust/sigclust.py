@@ -5,6 +5,7 @@ import pandas as pd
 import scipy.sparse.linalg
 import scipy.linalg
 import matplotlib.pyplot as plt
+from tqdm.autonotebook import tqdm
 
 from sigclust.constrained_kmeans import ConstrainedKMeans
 import sigclust.helper_functions as helper
@@ -243,8 +244,9 @@ class AvgCISigClust(object):
         self.p_value = None
         self.z_score = None
         self.sample_cluster_index = None
+        self.clusterer = avg_2means.Avg2Means(self.max_components, progressbar=False)
 
-    def fit(self, data, labels, p):
+    def fit(self, data, labels, g):
         """Fit the SigClust object.
         Currently only implementing the version of
         SigClust that uses the sample covariance matrix.
@@ -259,15 +261,16 @@ class AvgCISigClust(object):
         n1 = class_1.shape[0]
         n2 = class_2.shape[0]
 
-        self.sample_cluster_index = avg_2means.compute_average_cluster_index_p_exp(class_1, class_2, p)
+        self.sample_cluster_index = sdp_clustering.compute_average_cluster_index_g_exp(class_1, class_2, g)
 
         def simulate_cluster_index():
             simulated_matrix = np.random.standard_normal(size=(n, d)) * np.sqrt(eigenvalues)  # much faster than np.random.multivariate_normal
-            clusterer = avg_2means.Avg2Means(self.max_components)
-            clusterer.fit(simulated_matrix, p)
-            return clusterer.ci
+            self.clusterer.fit(simulated_matrix, g)
+            return self.clusterer.ci
 
-        self.simulated_cluster_indices = np.array([simulate_cluster_index() for i in range(self.num_simulations)])
+        self.simulated_cluster_indices = np.array(
+            [simulate_cluster_index() for i in tqdm(range(self.num_simulations))]
+            )
 
         # TODO: Implement Marron's continuous empirical probability procedure
         # for the p-value.

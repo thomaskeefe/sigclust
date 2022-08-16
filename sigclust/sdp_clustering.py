@@ -1,9 +1,8 @@
 import cvxpy as cp
 from sigclust.helper_functions import split_data, compute_sum_of_square_distances_to_mean, compute_sum_of_square_distances_to_point
+from sigclust.avg_2means import EuclideanDistanceMatrix
 import numpy as np
-from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from scipy.spatial.distance import pdist, squareform
 from tqdm.autonotebook import tqdm
 import logging
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -18,89 +17,6 @@ logging.basicConfig(level=logging.INFO)
 # TODO: could the search be made faster taking xi=.5, finding
 # any n_min that achieve xi<.5, then only search among those
 # n_min's for the xi <.25?
-
-# TODO: can this be replaced by np.outer?
-def cp_outer(x, y):
-    "cvxpy-friendly vector outer product"
-    if x.ndim > 1 or y.ndim > 1:
-        raise ValueError
-
-    return cp.reshape(x, (x.size, 1)) @ cp.reshape(y, (1, y.size))
-
-def _solve_sdp(D, c, n_minor, n_major, g, xi):
-    """D: matrix of squared pairwise distances
-       c: vector of square distances to the data mean
-       n_minor, n_major: number of points in each class
-       g = exponent g
-    """
-    n = n_minor + n_major
-    Z = cp.Variable((n, n), symmetric=True)
-    z = cp.Variable(n)
-    alpha1 = 1 / (2*n_minor**(g+1))
-    alpha2 = 1 / (2*n_major**(g+1))
-    gamma1 = 2 / (n_minor**g)
-    gamma2 = 2 / (n_major**g)
-    z1t = cp_outer(z, np.ones(n))
-    _1zt = z1t.T
-    _11t = cp_outer(np.ones(n), np.ones(n))
-
-    Uz = alpha1 * cp.trace(D @ (Z + z1t + _1zt + _11t)) + alpha2 * cp.trace(D @ (Z - z1t - _1zt + _11t))
-    Lz = gamma1 * c @ (1 + z) + gamma2 * c @ (1 - z)
-
-    constraints = [
-        Uz <= xi * Lz,
-        cp.bmat([[np.ones((1,1)), cp.reshape(z, (1, n)), ],
-                 [cp.reshape(z, (n, 1)), Z]]) >> 0,
-        cp.diag(Z) == np.ones(n),
-        cp.sum(z) == 2*n_minor - n,
-        (2*n_minor - n)*z - Z@np.ones(n) == np.zeros(n),
-        Z + _11t + z1t + _1zt >= 0,
-        Z + _11t - z1t - _1zt >= 0,
-        Z - _11t + z1t - _1zt <= 0,
-        Z - _11t - z1t + _1zt <= 0
-    ]
-
-    objective = 1  # i.e. a feasibility problem rather than a minimization
-    prob = cp.Problem(cp.Minimize(objective), constraints)
-    prob.solve()
-
-    return (prob, Z, z)
-
-
-def optimize_over_xi(D, c, n_minor, n_major, g, tol=.1):
-    L = 0
-    U = 1
-    maxiter = int(np.ceil(np.log2(1/tol)))
-    last_optimal = None
-
-    for it in range(maxiter):
-        xi = (L+U)/2
-        try:
-            prob, Z, z = _solve_sdp(D, c, n_minor, n_major, g, xi)
-
-        except Exception as e:
-            # If we're here, the solver had an error, which is not
-            # the same as "infeasible" but we do the same thing.
-            L = (L+U)/2
-            LOG.info(e)
-            continue
-
-        if prob.status == 'optimal':
-
-            # hold on to the last optimal solution in case we hit maxiter
-            last_optimal = prob, z, Z, xi
-
-            if U - L < tol:
-                return last_optimal
-            U = (L+U)/2
-
-        elif prob.status == 'infeasible':
-            L = (L+U)/2
-
-    if last_optimal is not None:
-        return last_optimal
-    else:
-        raise ValueError("Problem could not be made feasible within the iterations")
 
 def randomized_round(Z):
     n = Z.shape[0]
@@ -124,7 +40,7 @@ def singularvector_round(Z):
     labels[dotproducts <= 0] = 2
     return labels
 
-
+# TODO move this to helper functions
 def compute_average_cluster_index_g_exp(class_1, class_2, g):
     """Compute the average cluster index for the two-class clustering
     given by `labels`, and using the exponent g"""
@@ -145,18 +61,107 @@ def compute_average_cluster_index_g_exp(class_1, class_2, g):
     return numerator/denominator
 
 class GClustering:
-    def __init__(self, g):
+    def __init__(self, g, solver=None):
         self.g = g
+        self.solver = solver
+
+        if solver=='MOSEK' or solver is cp.MOSEK:
+            import mosek
+            self.mosek_params = {mosek.iparam.intpnt_solve_form: mosek.solveform.dual}
 
     def __repr__(self):
         return f"GClustering, g = {self.g}"
 
-    def fit(self, X, tol=.1):
-        n, d = X.shape
-        D = squareform(pdist(X, 'euclidean'))**2
-        c = norm(X - np.mean(X, axis=0), axis=1)**2
+    def _setup_sdp(self, X):
+        X = np.array(X)
+        g = self.g
+        D = EuclideanDistanceMatrix(X)
+        c = np.sum((X - np.mean(X, axis=0))**2, axis=1)
 
-        search_bound = int(np.floor(n/2))
+        n = X.shape[0]
+        self.Z = cp.Variable((n, n), symmetric=True)
+        self.z = cp.Variable(n)
+        self.n_minor = cp.Parameter(name='n_minor')
+        self.alpha1 = cp.Parameter(name='alpha1')
+        self.alpha2 = cp.Parameter(name='alpha2')
+        self.gamma1 = cp.Parameter(name='gamma1')
+        self.gamma2 = cp.Parameter(name='gamma2')
+
+        z1t = cp.reshape(self.z, (n, 1)) @ np.ones((1, n))
+        _1zt = z1t.T
+        _11t = np.ones((n,n))
+
+        Uz = self.alpha1 * cp.trace(D @ (self.Z + z1t + _1zt + _11t)) + self.alpha2 * cp.trace(D @ (self.Z - z1t - _1zt + _11t))
+        Lz = self.gamma1 * c @ (1 + self.z) + self.gamma2 * c @ (1 - self.z)
+
+        constraints = [
+            Uz <= Lz,
+            cp.bmat([[np.ones((1,1)), cp.reshape(self.z, (1, n)), ],
+                     [cp.reshape(self.z, (n, 1)), self.Z]]) >> 0,
+            cp.diag(self.Z) == np.ones(n),
+            cp.sum(self.z) == 2*self.n_minor - n,
+            (2*self.n_minor - n)*self.z - self.Z@np.ones(n) == np.zeros(n),
+            self.Z + _11t + z1t + _1zt >= 0,
+            self.Z + _11t - z1t - _1zt >= 0,
+            self.Z - _11t + z1t - _1zt <= 0,
+            self.Z - _11t - z1t + _1zt <= 0
+        ]
+
+        objective = 1  # i.e. a feasibility problem rather than a minimization
+        self.prob = cp.Problem(cp.Minimize(objective), constraints)
+
+    def _optimize_over_xi(self, n_minor, n_major, tol):
+        "Repeatedly solve the SDP using binary search over xi in [0,1]"
+        self.n_minor.value = n_minor
+        self.alpha1.value = 1 / (2*n_minor**(self.g+1))
+        self.alpha2.value = 1 / (2*n_major**(self.g+1))
+
+        L, U = 0, 1  # bounds for binary search on xi
+
+        maxiter = int(np.ceil(np.log2(1/tol)))
+        last_optimal = None
+
+        for it in range(maxiter):
+            xi = (L+U)/2
+            self.gamma1.value = xi * 2 / (n_minor**self.g)
+            self.gamma2.value = xi * 2 / (n_major**self.g)
+
+            try:
+                if self.solver is cp.MOSEK:
+                    self.prob.solve(solver=self.solver, mosek_params=self.mosek_params)
+                else:
+                    self.prob.solve(solver=self.solver)
+
+            except Exception as e:
+                # If we're here, the solver had an error, which is not
+                # the same as "infeasible" but we do the same thing.
+                L = (L+U)/2
+                LOG.info(e)
+                continue
+
+            if self.prob.status == 'optimal':
+
+                # hold on to the last optimal solution in case we hit maxiter
+                last_optimal = self.z.value, self.Z.value, xi
+
+                if U - L < tol:
+                    return last_optimal
+                U = (L+U)/2
+
+            elif self.prob.status == 'infeasible':
+                L = (L+U)/2
+
+        if last_optimal is not None:
+            return last_optimal
+        else:
+            raise ValueError("Problem could not be made feasible within the iterations")
+
+
+    def fit(self, X, tol=.1):
+        self._setup_sdp(X)
+
+        n = X.shape[0]
+        search_bound = n // 2
 
         self.results_ci = np.repeat(np.nan, search_bound)
         self.results_labels = np.tile(np.nan, (search_bound, n))
@@ -169,9 +174,9 @@ class GClustering:
                 n_minor = i + 1
                 n_major = n - n_minor
 
-                best_problem, best_z, best_Z, best_xi = optimize_over_xi(D, c, n_minor, n_major, self.g, tol=tol)
+                best_z, best_Z, best_xi = self._optimize_over_xi(n_minor, n_major, tol)
 
-                labels = singularvector_round(best_Z.value)
+                labels = singularvector_round(best_Z)
 
                 if len(np.unique(labels)) != 2:
                     ci = 1
@@ -181,6 +186,6 @@ class GClustering:
 
                 self.results_ci[i] = ci
                 self.results_labels[i, :] = labels
-                self.results_z[i, :] = best_z.value
-                self.results_Z[i, :, :] = best_Z.value
+                self.results_z[i, :] = best_z
+                self.results_Z[i, :, :] = best_Z
                 self.results_xi[i] = best_xi
