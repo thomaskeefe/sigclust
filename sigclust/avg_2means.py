@@ -14,30 +14,30 @@ def EuclideanDistanceMatrix(X):
     return Gdiag - 2*G + Gdiag.reshape(-1,1)
 
 @numba.njit(cache=True)
-def MinimizeCriterionAlongPC(sorted_d_sums, sorted_c, n, g):
-    "Given sorted pairwise distances and distances to mean, minimize the criterion"
+def MinimizeCI_g_AlongPC(D_pi, sorted_r, n, g):
+    "Given sorted pairwise distances and distances to mean, minimize the CI_g"
     cis = np.zeros(n-1)
 
     # We will start with no points in class1, and add the info about the next point
     # one by one. We only need to keep track of sums.
     n1 = 0
-    class1sum_numerator = 0
-    class1sum_denominator = 0
-
     n2 = n
-    class2sum_numerator = np.sum(sorted_d_sums)
-    class2sum_denominator = np.sum(sorted_c)
+    Sd1 = 0
+    Sd2 = np.sum(D_pi)
+    Sr1 = 0
+    Sr2 = np.sum(sorted_r)
 
-    for i in range(n-1):
+    for k in range(n-1):
+        d_pi_k = D_pi[k, :]
         n1 += 1
         n2 -= 1
-        class1sum_numerator += sorted_d_sums[i]
-        class2sum_numerator -= sorted_d_sums[i]
-        class1sum_denominator += sorted_c[i]
-        class2sum_denominator -= sorted_c[i]
-        num = 1/(2*n1)**(g+1) * class1sum_numerator + 1/(2*n2)**(g+1)  * class2sum_numerator
-        den = 1/n1**g * class1sum_denominator + 1/n2**g * class2sum_denominator
-        cis[i] = num/den
+        Sd1 += 2*np.sum(d_pi_k[:k])
+        Sd2 -= 2*np.sum(d_pi_k[k:])
+        Sr1 += sorted_r[k]
+        Sr2 -= sorted_r[k]
+        num = (2*n1)**(-g-1) * Sd1 + (2*n2)**(-g-1) * Sd2
+        den = n1**(-g) * Sr1 + n2**(-g) * Sr2
+        cis[k] = num/den
 
     best_idx = np.argmin(cis)
     best_ci = cis[best_idx]
@@ -46,25 +46,25 @@ def MinimizeCriterionAlongPC(sorted_d_sums, sorted_c, n, g):
 class Avg2Means(object):
     def __init__(self, max_components=1, progressbar=True):
         self.max_components = max_components
-        self.disable_progressbar = not progressbar
+        self.progressbar = progressbar
 
     def fit(self, X, g=1.0):
         X = np.array(X)
-        D2 = EuclideanDistanceMatrix(X)
+        D = EuclideanDistanceMatrix(X)
         scores_matrix = PCA(n_components=self.max_components).fit_transform(X)
         n = X.shape[0]
-        c = np.sum((X - X.mean(0))**2, axis=1)
+        r = np.sum((X - X.mean(0))**2, axis=1)
 
         results_per_pc = []
-        for j in tqdm(range(self.max_components), desc='Loop over PCs', disable=self.disable_progressbar):
+        for j in tqdm(range(self.max_components), desc='Loop over PCs', disable=(not self.progressbar)):
             pc_scores = scores_matrix[:, j]
             sort_order = np.argsort(pc_scores)
             sorted_pc_scores = pc_scores[sort_order]
 
-            D2_sorted = D2[sort_order][sort_order]
-            sums = np.sum(D2_sorted, axis=0) / 2
+            D_pi = D[sort_order][:, sort_order]
+            sorted_r = r[sort_order]
 
-            best_idx, best_ci = MinimizeCriterionAlongPC(sums, c[sort_order], n, g)
+            best_idx, best_ci = MinimizeCI_g_AlongPC(D_pi, sorted_r, n, g)
             optimizing_score = sorted_pc_scores[best_idx]
             boolean_labels = (pc_scores > optimizing_score)
             labels = boolean_labels.astype(int) + 1
