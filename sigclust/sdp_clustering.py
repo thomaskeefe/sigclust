@@ -133,14 +133,14 @@ def compute_average_cluster_index_g_exp(class_1, class_2, g):
     if (n1 == 0) or (n2 == 0):
         return np.nan
 
-    class_1_SSE = helper.compute_sum_of_square_distances_to_mean(class_1)
-    class_2_SSE = helper.compute_sum_of_square_distances_to_mean(class_2)
+    class_1_SSE = compute_sum_of_square_distances_to_mean(class_1)
+    class_2_SSE = compute_sum_of_square_distances_to_mean(class_2)
 
     overall_mean = np.concatenate([class_1, class_2]).mean(axis=0)
 
     numerator = (1/n1)**g * class_1_SSE + (1/n2)**g * class_2_SSE
-    denominator = (helper.compute_sum_of_square_distances_to_point(class_1, overall_mean) / (n1**g) +
-                   helper.compute_sum_of_square_distances_to_point(class_2, overall_mean) / (n2**g) )
+    denominator = (compute_sum_of_square_distances_to_point(class_1, overall_mean) / (n1**g) +
+                   compute_sum_of_square_distances_to_point(class_2, overall_mean) / (n2**g) )
 
     return numerator/denominator
 
