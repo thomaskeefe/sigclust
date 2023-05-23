@@ -1,13 +1,13 @@
 name: sigclust
 channels:
-  - defaults
   - conda-forge
   - mosek
 dependencies:
   - matplotlib
-  - numpy=1.21.*  # as of 8/1/2022, numba wants <=1.21
+  - numpy
+  # - numpy=1.21.*  # as of 8/1/2022, numba wants <=1.21
   - pandas
-  - python>=3.8
+  - python
   - scikit-learn
   - scipy
   - seaborn
@@ -17,6 +17,7 @@ dependencies:
   - tqdm
   - numba
   - ipykernel
+  - ipywidgets
   - toolz
   - matplotlib-label-lines
   - mosek
