@@ -5,5 +5,11 @@ __pycache__/
 *.m~
 .ipynb_checkpoints
 *.egginfo/
+*.egg-info/
 htmlcov/
 .coverage
+old_stuff/
+slides/
+literature/
+cancer_datasets/
+examples/
