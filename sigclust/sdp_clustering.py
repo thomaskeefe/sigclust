@@ -1,8 +1,7 @@
 import cvxpy as cp
-from sigclust.helper_functions import split_data, compute_sum_of_square_distances_to_mean, compute_sum_of_square_distances_to_point
-from sigclust.avg_2means import EuclideanDistanceMatrix
+from sigclust.helper_functions import split_data
+from sigclust.wci_clustering import EuclideanDistanceMatrix, compute_wci
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm.autonotebook import tqdm
 import logging
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -40,27 +39,8 @@ def singularvector_round(Z):
     labels[dotproducts <= 0] = 2
     return labels
 
-# TODO move this to helper functions
-def compute_average_cluster_index_g_exp(class_1, class_2, g):
-    """Compute the average cluster index for the two-class clustering
-    given by `labels`, and using the exponent g"""
-    n1 = class_1.shape[0]
-    n2 = class_2.shape[0]
-    if (n1 == 0) or (n2 == 0):
-        return np.nan
 
-    class_1_SSE = compute_sum_of_square_distances_to_mean(class_1)
-    class_2_SSE = compute_sum_of_square_distances_to_mean(class_2)
-
-    overall_mean = np.concatenate([class_1, class_2]).mean(axis=0)
-
-    numerator = (1/n1)**g * class_1_SSE + (1/n2)**g * class_2_SSE
-    denominator = (compute_sum_of_square_distances_to_point(class_1, overall_mean) / (n1**g) +
-                   compute_sum_of_square_distances_to_point(class_2, overall_mean) / (n2**g) )
-
-    return numerator/denominator
-
-class GClustering:
+class SDPWCIClustering:
     def __init__(self, g, solver=None):
         self.g = g
         self.solver = solver
@@ -182,7 +162,7 @@ class GClustering:
                     ci = 1
                     labels = np.ones(n)
                 else:
-                    ci = compute_average_cluster_index_g_exp(*split_data(X, labels), self.g)
+                    ci = compute_wci(*split_data(X, labels), self.g)
 
                 self.results_ci[i] = ci
                 self.results_labels[i, :] = labels
