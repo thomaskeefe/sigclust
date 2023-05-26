@@ -58,37 +58,3 @@ def compute_cluster_index_given_classes(class_1, class_2):
     cluster_index = (class_1_sum_squares + class_2_sum_squares) / total_sum_squares
     return cluster_index
 
-def compute_weighted_mean(X1, X2):
-    # The weighted mean is the mean of the means
-    means = np.array([X1.mean(axis=0), X2.mean(axis=0)])
-    return means.mean(axis=0)
-
-def compute_weighted_covariance(X1, X2):
-    maj_class, min_class = sort_by_n_desc([X1, X2])
-    nmaj = maj_class.shape[0]
-    nmin = min_class.shape[0]
-
-    X = np.concatenate([maj_class, min_class], axis=0)
-    X_bar = compute_weighted_mean(maj_class, min_class)
-    C = X - X_bar  # C for 'centered'
-    weights = np.concatenate([np.ones(nmaj), np.repeat(nmaj/nmin, nmin)])
-    W = np.diag(weights)
-    return 1/(2*nmaj-1) * C.T.dot(W).dot(C)
-
-def compute_weighted_cluster_index(X1, X2):
-    """Compute the weighted cluster index for X1 and X2"""
-    maj_class, min_class = sort_by_n_desc([X1, X2])
-    nmaj = maj_class.shape[0]
-    nmin = min_class.shape[0]
-
-    maj_class_sum_squares = compute_sum_of_square_distances_to_mean(maj_class)
-    min_class_sum_squares = compute_sum_of_square_distances_to_mean(min_class)
-
-    # Sum of squared distances to weighted mean
-    weighted_mean = compute_weighted_mean(X1, X2)
-    SSWM = lambda x: compute_sum_of_square_distances_to_point(x, weighted_mean)
-
-    total_sum_squares = SSWM(maj_class) + (nmaj/nmin)*SSWM(min_class)
-
-    cluster_index = (maj_class_sum_squares + (nmaj/nmin)*min_class_sum_squares) / total_sum_squares
-    return cluster_index
