@@ -114,9 +114,9 @@ class TestSigClust(TestCase):
         self.assertEqual(sc.p_value, 0)
 
 
-    def test_AvgCISigClust_fit(self):
-        "Test that AvgCISigClust gets a p-value of 0 for two well separated classes"
-        sc = sigclust.AvgCISigClust(num_simulations=100)
-        sc.fit(self.test_data, self.test_labels, g=0.59)
+    def test_WCISigClust_fit(self):
+        "Test that WeightedSigClust gets a p-value of 0 for two well separated classes"
+        sc = sigclust.WeightedSigClust(num_simulations=100)
+        sc.fit(self.test_data, self.test_labels)
         self.assertEqual(sc.p_value, 0)
 
